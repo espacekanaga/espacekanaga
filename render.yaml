@@ -15,7 +15,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: API_URL
-        value: https://espace-kanaga.onrender.com
+        value: https://espace-kanaga.onrender.com/api
       - key: PORT
         value: 10000
 
