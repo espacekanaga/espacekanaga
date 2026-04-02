@@ -1,19 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../../api/users';
+import { invoiceSettingsApi, type InvoiceSettingsBundle } from '../../api/invoiceSettings';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader } from '../../components/ui/Card';
 import { Input, TextArea } from '../../components/ui/Form';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
-import { loadInvoicePrefsForOrderType, saveInvoicePrefsForOrderType, type InvoicePrefs } from '../../utils/invoicePrefs';
 
 type Theme = 'dark' | 'light' | 'system';
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const { user, theme, setTheme, updateUser, hasPressingAccess, hasAtelierAccess } = useAuth();
+  const { user, theme, setTheme, updateUser, hasPressingAccess, hasAtelierAccess, isSuperAdmin } = useAuth();
   const { showSuccess, showError } = useToast();
 
   const [isSavingTheme, setIsSavingTheme] = useState(false);
@@ -24,17 +24,79 @@ export function SettingsPage() {
     confirmPassword: '',
   });
 
-  const [pressingInvoicePrefs, setPressingInvoicePrefs] = useState<InvoicePrefs>(() =>
-    loadInvoicePrefsForOrderType('pressing')
-  );
-  const [atelierInvoicePrefs, setAtelierInvoicePrefs] = useState<InvoicePrefs>(() =>
-    loadInvoicePrefsForOrderType('couture')
-  );
+  const [invoiceSettings, setInvoiceSettings] = useState<InvoiceSettingsBundle | null>(null);
+  const [isLoadingInvoiceSettings, setIsLoadingInvoiceSettings] = useState(true);
+
+  const [globalInvoiceForm, setGlobalInvoiceForm] = useState({
+    companyName: '',
+    companyTagline: '',
+    companyAddress: '',
+    companyPhone: '',
+    companyEmail: '',
+    companyNIF: '',
+    companyRCCM: '',
+    stampEnabled: true,
+    stampLine1: '',
+    stampLine2: '',
+    stampLine3: '',
+    stampColor: '#c41e3a',
+    footerLine1: '',
+    footerLine2: '',
+  });
+
+  const [pressingInvoiceForm, setPressingInvoiceForm] = useState({ tauxTVA: 18, notes: '' });
+  const [atelierInvoiceForm, setAtelierInvoiceForm] = useState({ tauxTVA: 18, notes: '' });
+
+  const [isSavingInvoiceGlobal, setIsSavingInvoiceGlobal] = useState(false);
+  const [isSavingInvoicePressing, setIsSavingInvoicePressing] = useState(false);
+  const [isSavingInvoiceAtelier, setIsSavingInvoiceAtelier] = useState(false);
 
   const resolvedTheme = useMemo(() => {
     if (theme !== 'system') return theme;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }, [theme]);
+
+  useEffect(() => {
+    const load = async () => {
+      setIsLoadingInvoiceSettings(true);
+      try {
+        const data = await invoiceSettingsApi.get();
+        setInvoiceSettings(data);
+
+        setGlobalInvoiceForm({
+          companyName: data.global.companyName || '',
+          companyTagline: data.global.companyTagline || '',
+          companyAddress: data.global.companyAddress || '',
+          companyPhone: data.global.companyPhone || '',
+          companyEmail: data.global.companyEmail || '',
+          companyNIF: data.global.companyNIF || '',
+          companyRCCM: data.global.companyRCCM || '',
+          stampEnabled: data.global.stampEnabled ?? true,
+          stampLine1: data.global.stampLine1 || '',
+          stampLine2: data.global.stampLine2 || '',
+          stampLine3: data.global.stampLine3 || '',
+          stampColor: data.global.stampColor || '#c41e3a',
+          footerLine1: data.global.footerLine1 || '',
+          footerLine2: data.global.footerLine2 || '',
+        });
+
+        setPressingInvoiceForm({
+          tauxTVA: data.pressing.tauxTVA ?? 18,
+          notes: data.pressing.notes || '',
+        });
+        setAtelierInvoiceForm({
+          tauxTVA: data.atelier.tauxTVA ?? 18,
+          notes: data.atelier.notes || '',
+        });
+      } catch (err) {
+        showError(err instanceof Error ? err.message : 'Erreur lors du chargement des paramètres de facturation');
+      } finally {
+        setIsLoadingInvoiceSettings(false);
+      }
+    };
+
+    load();
+  }, [showError]);
 
   const handleThemeChange = async (newTheme: Theme) => {
     setTheme(newTheme);
@@ -77,13 +139,50 @@ export function SettingsPage() {
     }
   };
 
-  const handleSaveInvoicePrefs = (type: 'pressing' | 'couture') => {
+  /* const handleSaveInvoicePrefs = (type: 'pressing' | 'couture') => {
     try {
       const prefs = type === 'pressing' ? pressingInvoicePrefs : atelierInvoicePrefs;
       saveInvoicePrefsForOrderType(type, prefs);
       showSuccess('Paramètres de facturation enregistrés');
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Erreur lors de l’enregistrement');
+    }
+  }; */
+
+  const canEditInvoiceGlobal = isSuperAdmin;
+  const canEditInvoicePressing = isSuperAdmin || hasPressingAccess;
+  const canEditInvoiceAtelier = isSuperAdmin || hasAtelierAccess;
+
+  const handleSaveInvoiceGlobal = async () => {
+    if (!canEditInvoiceGlobal) return;
+    setIsSavingInvoiceGlobal(true);
+    try {
+      const updated = await invoiceSettingsApi.update('global', globalInvoiceForm);
+      setInvoiceSettings((prev) => (prev ? { ...prev, global: updated } : prev));
+      showSuccess('Informations de facture enregistrées');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erreur lors de l’enregistrement');
+    } finally {
+      setIsSavingInvoiceGlobal(false);
+    }
+  };
+
+  const handleSaveWorkspace = async (scope: 'pressing' | 'atelier') => {
+    const canEdit = scope === 'pressing' ? canEditInvoicePressing : canEditInvoiceAtelier;
+    if (!canEdit) return;
+
+    const setSaving = scope === 'pressing' ? setIsSavingInvoicePressing : setIsSavingInvoiceAtelier;
+    const form = scope === 'pressing' ? pressingInvoiceForm : atelierInvoiceForm;
+
+    setSaving(true);
+    try {
+      const updated = await invoiceSettingsApi.update(scope, form);
+      setInvoiceSettings((prev) => (prev ? { ...prev, [scope]: updated } : prev));
+      showSuccess('Paramètres de facturation enregistrés');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erreur lors de l’enregistrement');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -95,7 +194,7 @@ export function SettingsPage() {
         </Button>
       </PageHeader>
 
-      <div className="space-y-6 max-w-2xl">
+      <div className="space-y-6 max-w-4xl">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -146,15 +245,216 @@ export function SettingsPage() {
               </div>
               <div>
                 <h3 className="text-lg font-semibold">Facturation</h3>
-                <p className="text-sm text-slate-400">Valeurs par défaut (Pressing / Atelier)</p>
+                <p className="text-sm text-slate-400">Facture, cachet et valeurs par défaut</p>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
+            {isLoadingInvoiceSettings && (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Chargement...</p>
+            )}
+
+            {!isLoadingInvoiceSettings && isSuperAdmin && (
+              <div className="space-y-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-medium text-slate-900 dark:text-slate-100">Informations facture</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Nom, contact, cachet et pied de page affichés sur le PDF.
+                    </p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={handleSaveInvoiceGlobal}
+                    isLoading={isSavingInvoiceGlobal}
+                    disabled={!canEditInvoiceGlobal}
+                  >
+                    Enregistrer
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Nom de l'entreprise"
+                    value={globalInvoiceForm.companyName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setGlobalInvoiceForm({ ...globalInvoiceForm, companyName: e.target.value })
+                    }
+                    disabled={!canEditInvoiceGlobal}
+                  />
+                  <Input
+                    label="Slogan / Activité"
+                    value={globalInvoiceForm.companyTagline}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setGlobalInvoiceForm({ ...globalInvoiceForm, companyTagline: e.target.value })
+                    }
+                    disabled={!canEditInvoiceGlobal}
+                  />
+                  <Input
+                    label="Telephone"
+                    value={globalInvoiceForm.companyPhone}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setGlobalInvoiceForm({ ...globalInvoiceForm, companyPhone: e.target.value })
+                    }
+                    disabled={!canEditInvoiceGlobal}
+                  />
+                  <Input
+                    label="Email"
+                    value={globalInvoiceForm.companyEmail}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setGlobalInvoiceForm({ ...globalInvoiceForm, companyEmail: e.target.value })
+                    }
+                    disabled={!canEditInvoiceGlobal}
+                  />
+                  <Input
+                    label="NIF (optionnel)"
+                    value={globalInvoiceForm.companyNIF}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setGlobalInvoiceForm({ ...globalInvoiceForm, companyNIF: e.target.value })
+                    }
+                    disabled={!canEditInvoiceGlobal}
+                  />
+                  <Input
+                    label="RCCM (optionnel)"
+                    value={globalInvoiceForm.companyRCCM}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setGlobalInvoiceForm({ ...globalInvoiceForm, companyRCCM: e.target.value })
+                    }
+                    disabled={!canEditInvoiceGlobal}
+                  />
+                </div>
+
+                <TextArea
+                  label="Adresse (optionnel)"
+                  placeholder="Ex: Tieguena face à l'école fondamentale"
+                  value={globalInvoiceForm.companyAddress}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                    setGlobalInvoiceForm({ ...globalInvoiceForm, companyAddress: e.target.value })
+                  }
+                  disabled={!canEditInvoiceGlobal}
+                  className="min-h-[80px]"
+                />
+
+                <div className="border-t border-slate-200/70 dark:border-slate-700/50 pt-6 space-y-4">
+                  <p className="font-medium text-slate-900 dark:text-slate-100">Cachet & pied de page</p>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-300 dark:border-slate-600"
+                          checked={globalInvoiceForm.stampEnabled}
+                          onChange={(e) =>
+                            setGlobalInvoiceForm({ ...globalInvoiceForm, stampEnabled: e.target.checked })
+                          }
+                          disabled={!canEditInvoiceGlobal}
+                        />
+                        Activer le cachet
+                      </label>
+                      <Input
+                        label="Couleur du cachet (hex)"
+                        placeholder="#c41e3a"
+                        value={globalInvoiceForm.stampColor}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setGlobalInvoiceForm({ ...globalInvoiceForm, stampColor: e.target.value })
+                        }
+                        disabled={!canEditInvoiceGlobal}
+                      />
+                      <Input
+                        label="Cachet - Ligne 1"
+                        value={globalInvoiceForm.stampLine1}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setGlobalInvoiceForm({ ...globalInvoiceForm, stampLine1: e.target.value })
+                        }
+                        disabled={!canEditInvoiceGlobal}
+                      />
+                      <Input
+                        label="Cachet - Ligne 2"
+                        value={globalInvoiceForm.stampLine2}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setGlobalInvoiceForm({ ...globalInvoiceForm, stampLine2: e.target.value })
+                        }
+                        disabled={!canEditInvoiceGlobal}
+                      />
+                      <Input
+                        label="Cachet - Ligne 3"
+                        value={globalInvoiceForm.stampLine3}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setGlobalInvoiceForm({ ...globalInvoiceForm, stampLine3: e.target.value })
+                        }
+                        disabled={!canEditInvoiceGlobal}
+                      />
+                    </div>
+
+                    <div className="space-y-3">
+                      <TextArea
+                        label="Footer - Ligne 1"
+                        value={globalInvoiceForm.footerLine1}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                          setGlobalInvoiceForm({ ...globalInvoiceForm, footerLine1: e.target.value })
+                        }
+                        disabled={!canEditInvoiceGlobal}
+                        className="min-h-[80px]"
+                      />
+                      <TextArea
+                        label="Footer - Ligne 2"
+                        value={globalInvoiceForm.footerLine2}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                          setGlobalInvoiceForm({ ...globalInvoiceForm, footerLine2: e.target.value })
+                        }
+                        disabled={!canEditInvoiceGlobal}
+                        className="min-h-[80px]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!isLoadingInvoiceSettings && !isSuperAdmin && (
+              <div className="rounded-xl border border-slate-200/70 dark:border-slate-700/50 p-4 bg-white/40 dark:bg-slate-900/20">
+                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Informations facture</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Modifiable uniquement par le Super Admin.
+                </p>
+                {invoiceSettings?.global && (
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-slate-500 dark:text-slate-400">Entreprise</p>
+                      <p className="text-slate-900 dark:text-slate-100 font-medium">
+                        {invoiceSettings.global.companyName || '-'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500 dark:text-slate-400">Email</p>
+                      <p className="text-slate-900 dark:text-slate-100 font-medium">
+                        {invoiceSettings.global.companyEmail || '-'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="border-t border-slate-200/70 dark:border-slate-700/50 pt-6 space-y-4">
+              <div>
+                <p className="font-medium text-slate-900 dark:text-slate-100">Valeurs par défaut</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  TVA et notes appliquées lors de la génération de la facture (Pressing / Atelier).
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="rounded-xl border border-slate-200/70 dark:border-slate-700/50 p-4 bg-white/40 dark:bg-slate-900/20 space-y-3">
+                  <div className="flex items-center justify-between">
                 <p className="font-medium text-slate-900 dark:text-slate-100">Pressing</p>
-                <Button variant="secondary" onClick={() => handleSaveInvoicePrefs('pressing')}>
+                <Button
+                  variant="secondary"
+                  onClick={() => handleSaveWorkspace('pressing')}
+                  disabled={!canEditInvoicePressing || isLoadingInvoiceSettings}
+                  isLoading={isSavingInvoicePressing}
+                >
                   Enregistrer
                 </Button>
               </div>
@@ -164,29 +464,38 @@ export function SettingsPage() {
                   type="number"
                   min={0}
                   max={100}
-                  value={pressingInvoicePrefs.tauxTVA}
+                  value={pressingInvoiceForm.tauxTVA}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setPressingInvoicePrefs({ ...pressingInvoicePrefs, tauxTVA: Number(e.target.value) })
+                    setPressingInvoiceForm({ ...pressingInvoiceForm, tauxTVA: Number(e.target.value) })
                   }
+                  disabled={!canEditInvoicePressing || isLoadingInvoiceSettings}
                 />
               </div>
               <TextArea
                 label="Notes (optionnel)"
                 placeholder="Ex: Merci de votre confiance..."
-                value={pressingInvoicePrefs.notes}
+                value={pressingInvoiceForm.notes}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  setPressingInvoicePrefs({ ...pressingInvoicePrefs, notes: e.target.value })
+                  setPressingInvoiceForm({ ...pressingInvoiceForm, notes: e.target.value })
                 }
+                disabled={!canEditInvoicePressing || isLoadingInvoiceSettings}
               />
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Ces valeurs seront utilisées lors de la génération d&apos;une facture Pressing.
-              </p>
+              {!canEditInvoicePressing && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Accès Pressing requis (ou Super Admin).
+                </p>
+              )}
             </div>
 
-            <div className="border-t border-slate-200/70 dark:border-slate-700/50 pt-6 space-y-3">
+                <div className="rounded-xl border border-slate-200/70 dark:border-slate-700/50 p-4 bg-white/40 dark:bg-slate-900/20 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="font-medium text-slate-900 dark:text-slate-100">Atelier</p>
-                <Button variant="secondary" onClick={() => handleSaveInvoicePrefs('couture')}>
+                <Button
+                  variant="secondary"
+                  onClick={() => handleSaveWorkspace('atelier')}
+                  disabled={!canEditInvoiceAtelier || isLoadingInvoiceSettings}
+                  isLoading={isSavingInvoiceAtelier}
+                >
                   Enregistrer
                 </Button>
               </div>
@@ -196,23 +505,29 @@ export function SettingsPage() {
                   type="number"
                   min={0}
                   max={100}
-                  value={atelierInvoicePrefs.tauxTVA}
+                  value={atelierInvoiceForm.tauxTVA}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setAtelierInvoicePrefs({ ...atelierInvoicePrefs, tauxTVA: Number(e.target.value) })
+                    setAtelierInvoiceForm({ ...atelierInvoiceForm, tauxTVA: Number(e.target.value) })
                   }
+                  disabled={!canEditInvoiceAtelier || isLoadingInvoiceSettings}
                 />
               </div>
               <TextArea
                 label="Notes (optionnel)"
                 placeholder="Ex: Délai de retouche..."
-                value={atelierInvoicePrefs.notes}
+                value={atelierInvoiceForm.notes}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  setAtelierInvoicePrefs({ ...atelierInvoicePrefs, notes: e.target.value })
+                  setAtelierInvoiceForm({ ...atelierInvoiceForm, notes: e.target.value })
                 }
+                disabled={!canEditInvoiceAtelier || isLoadingInvoiceSettings}
               />
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Ces valeurs seront utilisées lors de la génération d&apos;une facture Atelier.
-              </p>
+              {!canEditInvoiceAtelier && (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Accès Atelier requis (ou Super Admin).
+                </p>
+              )}
+            </div>
+              </div>
             </div>
           </CardContent>
         </Card>

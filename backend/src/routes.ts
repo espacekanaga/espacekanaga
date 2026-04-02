@@ -7,6 +7,7 @@ import { dashboardRouter } from "./modules/controllers/dashboard.controller";
 import { usersRouter } from "./modules/controllers/users.controller";
 import { measurementsRouter } from "./modules/controllers/measurements.controller";
 import { invoicesRouter } from "./modules/controllers/invoices.controller";
+import { invoiceSettingsRouter } from "./modules/controllers/invoiceSettings.controller";
 
 export function registerRoutes(app: Express) {
   // Health check
@@ -25,6 +26,7 @@ export function registerRoutes(app: Express) {
   });
 
   app.use("/api/auth", authRouter);
+  app.use("/api/settings/invoice", invoiceSettingsRouter);
   app.use("/api/clients", clientsRouter);
   app.use("/api/orders", ordersRouter);
   app.use("/api/invoices", invoicesRouter);

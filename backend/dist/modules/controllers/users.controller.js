@@ -258,7 +258,7 @@ exports.usersRouter.post("/", auth_middleware_1.requireSuperAdmin, async (req, r
     const normalizedTelephone = (0, normalize_1.normalizeTelephone)(telephone);
     const normalizedEmail = (0, normalize_1.normalizeEmail)(email);
     if (!normalizedTelephone)
-        return res.status(400).json({ error: "NumÃ©ro de tÃ©lÃ©phone invalide" });
+        return res.status(400).json({ error: "Numéro de téléphone invalide" });
     // Check if phone already exists
     const existingPhone = await prismaClient_1.prisma.user.findUnique({ where: { telephone: normalizedTelephone } });
     if (existingPhone) {
@@ -315,7 +315,7 @@ exports.usersRouter.patch("/:id", auth_middleware_1.requireSuperAdmin, async (re
         if (parsed.data.telephone !== undefined) {
             const normalized = (0, normalize_1.normalizeTelephone)(parsed.data.telephone);
             if (!normalized) {
-                return res.status(400).json({ error: "NumÃ©ro de tÃ©lÃ©phone invalide" });
+                return res.status(400).json({ error: "Numéro de téléphone invalide" });
             }
             telephoneToSet = normalized;
         }

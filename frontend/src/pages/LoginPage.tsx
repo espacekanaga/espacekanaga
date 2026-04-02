@@ -8,8 +8,11 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotStep, setForgotStep] = useState<'input' | 'success'>('input');
   const { login, isAuthenticated } = useAuth();
-  const { showError, showInfo } = useToast();
+  const { showError, showSuccess } = useToast();
   const navigate = useNavigate();
 
   if (isAuthenticated) {
@@ -33,7 +36,26 @@ export function LoginPage() {
   };
 
   const handleForgotPassword = () => {
-    showInfo('Veuillez contacter l\'administrateur pour réinitialiser votre mot de passe');
+    setShowForgotModal(true);
+    setForgotEmail('');
+    setForgotStep('input');
+  };
+
+  const handleForgotSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      showError('Veuillez saisir votre email ou téléphone');
+      return;
+    }
+    // Simuler l'envoi de la demande
+    setForgotStep('success');
+    showSuccess('Demande envoyée avec succès');
+  };
+
+  const closeForgotModal = () => {
+    setShowForgotModal(false);
+    setForgotEmail('');
+    setForgotStep('input');
   };
 
   return (
@@ -109,6 +131,65 @@ export function LoginPage() {
           </form>
         </div>
       </div>
+
+      {/* Modal Mot de passe oublié */}
+      {showForgotModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            {forgotStep === 'input' ? (
+              <>
+                <h2 className="text-xl font-semibold text-slate-100 mb-2">Mot de passe oublié ?</h2>
+                <p className="text-slate-400 text-sm mb-4">
+                  Saisissez votre email ou numéro de téléphone. Un administrateur vous contactera pour réinitialiser votre mot de passe.
+                </p>
+                <form onSubmit={handleForgotSubmit} className="space-y-4">
+                  <input
+                    type="text"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="votre@email.com ou 76123456"
+                    required
+                  />
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={closeForgotModal}
+                      className="flex-1 py-2 px-4 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg transition-colors"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      Envoyer
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <div className="w-12 h-12 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-slate-100 mb-2">Demande envoyée !</h3>
+                <p className="text-slate-400 text-sm mb-4">
+                  Votre demande a été transmise à l'administrateur. Vous serez contacté prochainement.
+                </p>
+                <button
+                  onClick={closeForgotModal}
+                  className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  Retour à la connexion
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

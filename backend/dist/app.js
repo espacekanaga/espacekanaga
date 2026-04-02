@@ -16,7 +16,12 @@ function createApp() {
     const app = (0, express_1.default)();
     app.disable("x-powered-by");
     app.use((0, cors_1.default)({
-        origin: env_1.env.APP_BASE_URL,
+        origin: [
+            env_1.env.APP_BASE_URL,
+            "http://localhost:5173",
+            "https://espace-kanaga.netlify.app",
+            "https://espace-kanaga.onrender.com",
+        ],
         credentials: true,
     }));
     app.use((0, helmet_1.default)());

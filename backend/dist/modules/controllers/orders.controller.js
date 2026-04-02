@@ -37,6 +37,44 @@ function canModifyOrder(orderType, user) {
         return user.accessAtelier === true;
     return false;
 }
+function defaultGlobalInvoiceSettings() {
+    const companyName = process.env.INVOICE_COMPANY_NAME || "ESPACE KANAGA";
+    const companyTagline = process.env.INVOICE_COMPANY_TAGLINE || "Pressing & Couture";
+    const companyAddress = process.env.INVOICE_COMPANY_ADDRESS || "";
+    const companyPhone = process.env.INVOICE_COMPANY_PHONE || "";
+    const companyEmail = process.env.INVOICE_COMPANY_EMAIL || "espacekanaga@gmail.com";
+    const companyNIF = process.env.INVOICE_COMPANY_NIF || "";
+    const companyRCCM = process.env.INVOICE_COMPANY_RCCM || "";
+    return {
+        companyName,
+        companyTagline,
+        companyAddress,
+        companyPhone,
+        companyEmail,
+        companyNIF,
+        companyRCCM,
+        stampEnabled: true,
+        stampLine1: companyName,
+        stampLine2: companyTagline.toUpperCase(),
+        stampLine3: "VALIDÉ",
+        stampColor: "#c41e3a",
+        footerLine1: "Document généré numériquement - Cachet et signature électroniques certifiés",
+        footerLine2: companyNIF || companyRCCM ? `NIF: ${companyNIF || "-"} • RCCM: ${companyRCCM || "-"}` : "",
+    };
+}
+async function getOrCreateInvoiceSettings(scope) {
+    const existing = await prismaClient_1.prisma.invoiceSettings.findUnique({ where: { scope } });
+    if (existing)
+        return existing;
+    if (scope === "global") {
+        return prismaClient_1.prisma.invoiceSettings.create({
+            data: { scope, ...defaultGlobalInvoiceSettings() },
+        });
+    }
+    return prismaClient_1.prisma.invoiceSettings.create({
+        data: { scope, tauxTVA: 18, notes: "" },
+    });
+}
 // Get all orders
 exports.ordersRouter.get("/", auth_middleware_1.requireAuth, async (req, res) => {
     const search = typeof req.query.search === "string" ? req.query.search : undefined;
@@ -230,8 +268,8 @@ exports.ordersRouter.post("/:id/invoice", auth_middleware_1.requireAuth, async (
     if (!settings.success) {
         return res.status(400).json({ error: settings.error.flatten() });
     }
-    const tauxTVA = settings.data.tauxTVA ?? 18;
-    const notes = settings.data.notes;
+    const overrideTauxTVA = settings.data.tauxTVA;
+    const overrideNotes = settings.data.notes;
     // Check if order exists
     const order = await prismaClient_1.prisma.order.findUnique({
         where: { id: String(id) },
@@ -249,6 +287,13 @@ exports.ordersRouter.post("/:id/invoice", auth_middleware_1.requireAuth, async (
     if (!canModifyOrder(order.type, req.user)) {
         return res.status(403).json({ error: "Accès refusé" });
     }
+    const workspaceScope = order.type === client_1.OrderType.pressing ? "pressing" : "atelier";
+    const [globalInvoiceSettings, workspaceInvoiceSettings] = await Promise.all([
+        getOrCreateInvoiceSettings("global"),
+        getOrCreateInvoiceSettings(workspaceScope),
+    ]);
+    const tauxTVA = overrideTauxTVA ?? workspaceInvoiceSettings.tauxTVA ?? 18;
+    const notes = overrideNotes ?? (workspaceInvoiceSettings.notes || undefined);
     const existingInvoice = order.invoice;
     // Generate invoice number (keep same number if invoice already exists)
     let numero = existingInvoice?.numero;
@@ -297,6 +342,30 @@ exports.ordersRouter.post("/:id/invoice", auth_middleware_1.requireAuth, async (
             montantTTC: order.prixTotal,
             createdBy: order.createdBy || undefined,
             notes,
+            config: {
+                company: {
+                    name: globalInvoiceSettings.companyName || undefined,
+                    tagline: globalInvoiceSettings.companyTagline || undefined,
+                    address: globalInvoiceSettings.companyAddress || undefined,
+                    phone: globalInvoiceSettings.companyPhone || undefined,
+                    email: globalInvoiceSettings.companyEmail || undefined,
+                    nif: globalInvoiceSettings.companyNIF || undefined,
+                    rccm: globalInvoiceSettings.companyRCCM || undefined,
+                },
+                stamp: {
+                    enabled: globalInvoiceSettings.stampEnabled,
+                    color: globalInvoiceSettings.stampColor || undefined,
+                    lines: [
+                        globalInvoiceSettings.stampLine1,
+                        globalInvoiceSettings.stampLine2,
+                        globalInvoiceSettings.stampLine3,
+                    ].filter(Boolean),
+                },
+                footer: {
+                    line1: globalInvoiceSettings.footerLine1 || undefined,
+                    line2: globalInvoiceSettings.footerLine2 || undefined,
+                },
+            },
         });
     };
     let pdfUrl = await buildPdf(numero);

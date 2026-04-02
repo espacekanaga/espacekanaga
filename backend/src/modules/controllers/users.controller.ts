@@ -284,7 +284,7 @@ usersRouter.post("/", requireSuperAdmin, async (req, res) => {
   const { prenom, nom, telephone, email, adresse, role, accessPressing, accessAtelier, password } = parsed.data;
   const normalizedTelephone = normalizeTelephone(telephone);
   const normalizedEmail = normalizeEmail(email);
-  if (!normalizedTelephone) return res.status(400).json({ error: "NumÃ©ro de tÃ©lÃ©phone invalide" });
+  if (!normalizedTelephone) return res.status(400).json({ error: "Numéro de téléphone invalide" });
 
   // Check if phone already exists
   const existingPhone = await prisma.user.findUnique({ where: { telephone: normalizedTelephone } });
@@ -348,7 +348,7 @@ usersRouter.patch("/:id", requireSuperAdmin, async (req, res) => {
     if (parsed.data.telephone !== undefined) {
       const normalized = normalizeTelephone(parsed.data.telephone);
       if (!normalized) {
-        return res.status(400).json({ error: "NumÃ©ro de tÃ©lÃ©phone invalide" });
+        return res.status(400).json({ error: "Numéro de téléphone invalide" });
       }
       telephoneToSet = normalized;
     }

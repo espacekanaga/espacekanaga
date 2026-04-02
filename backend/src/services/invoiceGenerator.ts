@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 interface InvoiceData {
   numero: string;
@@ -34,19 +35,42 @@ interface InvoiceData {
     nom: string;
   };
   notes?: string;
+  config?: {
+    company?: {
+      name?: string;
+      tagline?: string;
+      address?: string;
+      phone?: string;
+      email?: string;
+      nif?: string;
+      rccm?: string;
+    };
+    stamp?: {
+      enabled?: boolean;
+      color?: string;
+      lines?: string[];
+    };
+    footer?: {
+      line1?: string;
+      line2?: string;
+    };
+  };
 }
 
 export class InvoiceGenerator {
-  private static readonly STAMP_TEXT = 'ESPACE KANAGA\nPRESSING & COUTURE\nVALIDÉ';
-  private static readonly SIGNATURE_TEXT = 'Idrissa Guindo\nGérant';
+  private static readonly DEFAULTS = {
+    companyName: 'ESPACE KANAGA',
+    companyTagline: 'Pressing & Couture',
+    companyEmail: 'espacekanaga@gmail.com',
+    stampColor: '#c41e3a',
+  };
 
   static generateInvoicePDF(data: InvoiceData): Promise<string> {
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const filename = `facture-${data.numero}-${Date.now()}.pdf`;
     const filepath = path.join(process.cwd(), 'public', 'invoices', filename);
     const publicUrl = `/invoices/${filename}`;
 
-    // Ensure directory exists
     const dir = path.dirname(filepath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
@@ -55,145 +79,276 @@ export class InvoiceGenerator {
     const stream = fs.createWriteStream(filepath);
     doc.pipe(stream);
 
-    // Header with company info
-    doc.fontSize(20).font('Helvetica-Bold').text('ESPACE KANAGA', 50, 50);
-    doc.fontSize(12).font('Helvetica').text('Pressing & Couture', 50, 75);
-    doc.fontSize(10).text('Adresse: [Votre adresse]', 50, 95);
-    doc.text('Téléphone: [Votre téléphone]', 50, 110);
-    doc.text('Email: espacekanaga@gmail.com', 50, 125);
+    const company = {
+      name: data.config?.company?.name?.trim() || this.DEFAULTS.companyName,
+      tagline: data.config?.company?.tagline?.trim() || this.DEFAULTS.companyTagline,
+      address: data.config?.company?.address?.trim() || '',
+      phone: data.config?.company?.phone?.trim() || '',
+      email: data.config?.company?.email?.trim() || this.DEFAULTS.companyEmail,
+      nif: data.config?.company?.nif?.trim() || '',
+      rccm: data.config?.company?.rccm?.trim() || '',
+    };
 
-    // Invoice title and number
-    doc.fontSize(16).font('Helvetica-Bold').text('FACTURE', 400, 50, { align: 'right' });
-    doc.fontSize(10).font('Helvetica').text(`N°: ${data.numero}`, 400, 75, { align: 'right' });
-    doc.text(`Date: ${data.date.toLocaleDateString('fr-FR')}`, 400, 90, { align: 'right' });
-    doc.text(`Commande: #${data.order.id.slice(-6)}`, 400, 105, { align: 'right' });
+    const stampColor = data.config?.stamp?.color?.trim() || this.DEFAULTS.stampColor;
+    const stampLines =
+      data.config?.stamp?.lines?.filter((l) => l && l.trim().length).map((l) => l.trim()) ||
+      [company.name, company.tagline.toUpperCase(), 'VALIDÉ'];
+    const stampEnabled = data.config?.stamp?.enabled !== false;
 
-    // Client info
-    doc.fontSize(12).font('Helvetica-Bold').text('FACTURER À:', 50, 160);
-    doc.fontSize(11).font('Helvetica').text(`${data.client.prenom} ${data.client.nom}`, 50, 180);
-    doc.fontSize(10).text(`Tél: ${data.client.telephone}`, 50, 200);
-    if (data.client.email) {
-      doc.text(`Email: ${data.client.email}`, 50, 215);
-    }
-    if (data.client.adresse) {
-      doc.text(`Adresse: ${data.client.adresse}`, 50, data.client.email ? 230 : 215);
-    }
+    const footer = {
+      line1:
+        data.config?.footer?.line1?.trim() ||
+        'Document généré numériquement - Cachet et signature électroniques certifiés',
+      line2: data.config?.footer?.line2?.trim() || '',
+    };
 
-    // Table header
-    const tableTop = 280;
-    doc.rect(50, tableTop, 500, 25).fill('#f0f0f0').stroke();
-    doc.fillColor('#000').fontSize(10).font('Helvetica-Bold');
-    doc.text('Description', 60, tableTop + 7);
-    doc.text('Qté', 300, tableTop + 7, { width: 50, align: 'center' });
-    doc.text('Prix U.', 360, tableTop + 7, { width: 80, align: 'right' });
-    doc.text('Montant', 450, tableTop + 7, { width: 90, align: 'right' });
+    const pageLeft = doc.page.margins.left;
+    const pageRight = doc.page.width - doc.page.margins.right;
+    const contentWidth = pageRight - pageLeft;
+    const top = doc.page.margins.top;
 
-    // Table rows
-    let rowTop = tableTop + 25;
-    doc.font('Helvetica').fontSize(10);
-    data.lignes.forEach((ligne, index) => {
-      if (index % 2 === 0) {
-        doc.rect(50, rowTop, 500, 20).fill('#fafafa').stroke();
-      }
-      doc.fillColor('#000');
-      doc.text(ligne.description, 60, rowTop + 5, { width: 230 });
-      doc.text(ligne.quantite.toString(), 300, rowTop + 5, { width: 50, align: 'center' });
-      doc.text(ligne.prixUnitaire.toLocaleString('fr-FR') + ' FCFA', 360, rowTop + 5, { width: 80, align: 'right' });
-      doc.text(ligne.montant.toLocaleString('fr-FR') + ' FCFA', 450, rowTop + 5, { width: 90, align: 'right' });
-      rowTop += 20;
+    // Header
+    const headerY = top;
+    doc.font('Helvetica-Bold').fontSize(22).fillColor('#0b1220').text(company.name, pageLeft, headerY);
+    doc.font('Helvetica').fontSize(11).fillColor('#111827').text(company.tagline, pageLeft, headerY + 28);
+
+    doc.font('Helvetica').fontSize(9).fillColor('#334155');
+    const companyLines: string[] = [];
+    if (company.address) companyLines.push(company.address);
+    if (company.phone) companyLines.push(`Tél: ${company.phone}`);
+    if (company.email) companyLines.push(`Email: ${company.email}`);
+    const legal = [company.nif ? `NIF: ${company.nif}` : '', company.rccm ? `RCCM: ${company.rccm}` : '']
+      .filter(Boolean)
+      .join(' • ');
+    if (legal) companyLines.push(legal);
+    companyLines.forEach((line, idx) => {
+      doc.text(line, pageLeft, headerY + 46 + idx * 12);
     });
 
-    // Totals
-    const totalsTop = rowTop + 20;
-    doc.font('Helvetica-Bold');
-    doc.text('Montant HT:', 350, totalsTop, { width: 100, align: 'right' });
-    doc.text(data.montantHT.toLocaleString('fr-FR') + ' FCFA', 460, totalsTop, { width: 80, align: 'right' });
-    
-    doc.text(`TVA (${data.tauxTVA}%):`, 350, totalsTop + 20, { width: 100, align: 'right' });
-    doc.text(data.montantTVA.toLocaleString('fr-FR') + ' FCFA', 460, totalsTop + 20, { width: 80, align: 'right' });
-    
-    doc.fontSize(12).text('TOTAL TTC:', 350, totalsTop + 45, { width: 100, align: 'right' });
-    doc.text(data.montantTTC.toLocaleString('fr-FR') + ' FCFA', 460, totalsTop + 45, { width: 80, align: 'right' });
+    // Invoice meta box (right)
+    const metaW = 210;
+    const metaX = pageRight - metaW;
+    const metaY = headerY + 2;
+    doc.roundedRect(metaX, metaY, metaW, 86, 8).fill('#f1f5f9');
+    doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(14).text('FACTURE', metaX, metaY + 10, {
+      width: metaW,
+      align: 'center',
+    });
+    doc.font('Helvetica').fontSize(9).fillColor('#0f172a');
+    const metaLines: Array<[string, string]> = [
+      ['N°', data.numero],
+      ['Date', data.date.toLocaleDateString('fr-FR')],
+      ['Commande', `#${data.order.id.slice(-6)}`],
+    ];
+    let metaLineY = metaY + 34;
+    metaLines.forEach(([k, v]) => {
+      doc.fillColor('#475569').text(`${k}:`, metaX + 12, metaLineY, { width: 60 });
+      doc.fillColor('#0f172a').font('Helvetica-Bold').text(v, metaX + 54, metaLineY, { width: metaW - 66 });
+      doc.font('Helvetica');
+      metaLineY += 14;
+    });
 
-    // Notes
-    if (data.notes && data.notes.trim().length) {
-      doc.font('Helvetica-Bold').fontSize(9).fillColor('#111');
-      doc.text('Notes:', 50, totalsTop + 45, { width: 280 });
-      doc.font('Helvetica').fontSize(9).fillColor('#333');
-      doc.text(data.notes.trim(), 50, totalsTop + 60, { width: 280 });
+    const afterHeaderY = Math.max(headerY + 46 + companyLines.length * 12, metaY + 86) + 14;
+    doc.moveTo(pageLeft, afterHeaderY).lineTo(pageRight, afterHeaderY).strokeColor('#e2e8f0').lineWidth(1).stroke();
+
+    // Client block
+    const clientY = afterHeaderY + 16;
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text('FACTURER À', pageLeft, clientY);
+    doc.font('Helvetica').fontSize(10).fillColor('#0f172a').text(`${data.client.prenom} ${data.client.nom}`, pageLeft, clientY + 18);
+
+    const clientLines: string[] = [`Tél: ${data.client.telephone}`];
+    if (data.client.email) clientLines.push(`Email: ${data.client.email}`);
+    if (data.client.adresse) clientLines.push(`Adresse: ${data.client.adresse}`);
+
+    doc.font('Helvetica').fontSize(9).fillColor('#334155');
+    clientLines.forEach((line, idx) => doc.text(line, pageLeft, clientY + 36 + idx * 12));
+
+    const tableTop = clientY + 36 + clientLines.length * 12 + 22;
+
+    const colDescW = Math.floor(contentWidth * 0.55);
+    const colQtyW = 50;
+    const colUnitW = 90;
+    const colTotalW = contentWidth - colDescW - colQtyW - colUnitW;
+
+    const xDesc = pageLeft;
+    const xQty = xDesc + colDescW;
+    const xUnit = xQty + colQtyW;
+    const xTotal = xUnit + colUnitW;
+
+    const drawTableHeader = (y: number) => {
+      doc.roundedRect(pageLeft, y, contentWidth, 24, 6).fill('#eaf2ff');
+      doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(9);
+      doc.text('Description', xDesc + 10, y + 7, { width: colDescW - 10 });
+      doc.text('Qté', xQty, y + 7, { width: colQtyW, align: 'center' });
+      doc.text('Prix U.', xUnit, y + 7, { width: colUnitW - 6, align: 'right' });
+      doc.text('Montant', xTotal, y + 7, { width: colTotalW - 10, align: 'right' });
+      doc.font('Helvetica').fillColor('#0f172a');
+    };
+
+    drawTableHeader(tableTop);
+
+    let rowY = tableTop + 28;
+    doc.font('Helvetica').fontSize(9).fillColor('#0f172a');
+
+    const bottomReserved = 170; // totals + cachet/signature + footer
+
+    data.lignes.forEach((ligne, idx) => {
+      const descHeight = doc.heightOfString(ligne.description, { width: colDescW - 16 });
+      const rowH = Math.max(18, Math.ceil(descHeight)) + 8;
+
+      if (rowY + rowH > doc.page.height - doc.page.margins.bottom - bottomReserved) {
+        doc.addPage();
+        rowY = top;
+        drawTableHeader(rowY);
+        rowY += 28;
+      }
+
+      if (idx % 2 === 0) {
+        doc.rect(pageLeft, rowY - 2, contentWidth, rowH).fill('#f8fafc');
+        doc.fillColor('#0f172a');
+      }
+
+      doc.text(ligne.description, xDesc + 10, rowY + 4, { width: colDescW - 16 });
+      doc.text(String(ligne.quantite), xQty, rowY + 4, { width: colQtyW, align: 'center' });
+      doc.text(this.formatMoney(ligne.prixUnitaire), xUnit, rowY + 4, { width: colUnitW - 6, align: 'right' });
+      doc.text(this.formatMoney(ligne.montant), xTotal, rowY + 4, { width: colTotalW - 10, align: 'right' });
+
+      rowY += rowH;
+    });
+
+    // Totals box
+    const totalsY = rowY + 14;
+    const totalsW = 230;
+    const totalsX = pageRight - totalsW;
+    const totalsH = 78;
+
+    if (totalsY + totalsH > doc.page.height - doc.page.margins.bottom - bottomReserved + 70) {
+      doc.addPage();
+      rowY = top;
     }
 
-    // Digital Stamp (Cachet numérique)
-    const stampY = totalsTop + 80;
-    this.drawDigitalStamp(doc, 50, stampY);
+    doc.roundedRect(totalsX, totalsY, totalsW, totalsH, 8).fill('#f1f5f9');
+    doc.font('Helvetica').fontSize(9).fillColor('#334155');
+    doc.text('Montant HT', totalsX + 12, totalsY + 12);
+    doc.text(this.formatMoney(data.montantHT), totalsX, totalsY + 12, { width: totalsW - 12, align: 'right' });
+    doc.text(`TVA (${data.tauxTVA}%)`, totalsX + 12, totalsY + 30);
+    doc.text(this.formatMoney(data.montantTVA), totalsX, totalsY + 30, { width: totalsW - 12, align: 'right' });
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#0f172a');
+    doc.text('TOTAL TTC', totalsX + 12, totalsY + 52);
+    doc.text(this.formatMoney(data.montantTTC), totalsX, totalsY + 52, { width: totalsW - 12, align: 'right' });
 
-    // Digital Signature
-    const sigY = totalsTop + 80;
-    this.drawDigitalSignature(doc, 350, sigY, data.createdBy);
+    // Notes
+    const notes = data.notes?.trim();
+    if (notes) {
+      const notesX = pageLeft;
+      const notesY = totalsY;
+      const notesW = totalsX - pageLeft - 12;
+      const notesTitleH = 14;
+      const notesBodyH = Math.min(70, Math.ceil(doc.heightOfString(notes, { width: notesW - 20 })));
+      const notesH = notesTitleH + notesBodyH + 14;
+
+      doc.roundedRect(notesX, notesY, notesW, notesH, 8).fill('#ffffff');
+      doc.roundedRect(notesX, notesY, notesW, notesH, 8).strokeColor('#e2e8f0').lineWidth(1).stroke();
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text('Notes', notesX + 12, notesY + 10);
+      doc.font('Helvetica').fontSize(9).fillColor('#334155').text(notes, notesX + 12, notesY + 24, { width: notesW - 24 });
+    }
+
+    // Cachet + signature
+    const minSealY = totalsY + totalsH + 24;
+    const sealY = doc.page.height - doc.page.margins.bottom - 125;
+    if (sealY < minSealY) {
+      doc.addPage();
+    }
+
+    const finalSealY = doc.page.height - doc.page.margins.bottom - 125;
+    if (stampEnabled) {
+      this.drawDigitalStamp(doc, pageLeft, finalSealY, {
+        color: stampColor,
+        lines: stampLines,
+        date: data.date,
+      });
+    }
+
+    this.drawDigitalSignature(doc, pageRight - 190, finalSealY + 6, data.createdBy, data.numero);
 
     // Footer
-    doc.fontSize(8).font('Helvetica').fillColor('#666');
-    doc.text('Document généré numériquement - Cachet et signature électroniques certifiées', 50, 750, { align: 'center' });
-    doc.text('Espace Kanaga - Siret: [Numéro] - N° TVA: [Numéro]', 50, 765, { align: 'center' });
+    const footerY = doc.page.height - doc.page.margins.bottom - 38;
+    doc.font('Helvetica').fontSize(8).fillColor('#64748b');
+    doc.text(footer.line1, pageLeft, footerY, { width: contentWidth, align: 'center' });
+    if (footer.line2) {
+      doc.text(footer.line2, pageLeft, footerY + 12, { width: contentWidth, align: 'center' });
+    }
 
     doc.end();
 
-    // Wait for file to be written
     return new Promise<string>((resolve, reject) => {
       stream.on('finish', () => resolve(publicUrl));
       stream.on('error', reject);
     });
   }
 
-  private static drawDigitalStamp(doc: PDFKit.PDFDocument, x: number, y: number): void {
-    // Draw circular stamp
-    const radius = 45;
+  private static drawDigitalStamp(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    options: { color: string; lines: string[]; date: Date }
+  ): void {
+    const color = options.color || this.DEFAULTS.stampColor;
+    const radius = 44;
     const centerX = x + radius;
     const centerY = y + radius;
 
-    // Outer circle
-    doc.circle(centerX, centerY, radius).stroke('#c41e3a').lineWidth(2);
-    // Inner circle
-    doc.circle(centerX, centerY, radius - 5).stroke('#c41e3a').lineWidth(1);
+    doc.save();
+    doc.lineWidth(2).strokeColor(color).circle(centerX, centerY, radius).stroke();
+    doc.lineWidth(1).strokeColor(color).circle(centerX, centerY, radius - 6).stroke();
 
-    // Stamp text
-    doc.fontSize(8).font('Helvetica-Bold').fillColor('#c41e3a');
-    const lines = this.STAMP_TEXT.split('\n');
-    let textY = centerY - ((lines.length - 1) * 10) / 2;
+    const lines = options.lines.slice(0, 4);
+    const fontSize = lines.length >= 4 ? 7 : 8;
+    doc.font('Helvetica-Bold').fontSize(fontSize).fillColor(color);
+    const lineGap = fontSize + 2;
+    let textY = centerY - ((lines.length - 1) * lineGap) / 2 - 4;
     lines.forEach((line) => {
-      doc.text(line, centerX - 40, textY, { width: 80, align: 'center' });
-      textY += 10;
+      doc.text(line, centerX - 42, textY, { width: 84, align: 'center' });
+      textY += lineGap;
     });
 
-    // Add date in stamp
-    doc.fontSize(7).text(new Date().toLocaleDateString('fr-FR'), centerX - 40, centerY + 20, { width: 80, align: 'center' });
+    doc.font('Helvetica').fontSize(7).fillColor(color);
+    doc.text(options.date.toLocaleDateString('fr-FR'), centerX - 42, centerY + 22, { width: 84, align: 'center' });
+    doc.restore();
   }
 
-  private static drawDigitalSignature(doc: PDFKit.PDFDocument, x: number, y: number, createdBy?: { prenom: string; nom: string }): void {
-    // Signature line
-    doc.moveTo(x, y + 30).lineTo(x + 150, y + 30).stroke('#000').lineWidth(1);
-    
-    // Signature text
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#000');
-    const signerName = createdBy ? `${createdBy.prenom} ${createdBy.nom}` : this.SIGNATURE_TEXT;
-    doc.text(signerName, x, y + 35, { width: 150, align: 'center' });
-    
-    doc.fontSize(8).font('Helvetica');
-    doc.text('Signature électronique certifiée', x, y + 50, { width: 150, align: 'center' });
-    
-    // Add certification hash
-    const hash = this.generateCertificationHash();
-    doc.fontSize(6).fillColor('#666');
-    doc.text(`Cert: ${hash}`, x, y + 65, { width: 150, align: 'center' });
+  private static drawDigitalSignature(
+    doc: PDFKit.PDFDocument,
+    x: number,
+    y: number,
+    createdBy: { prenom: string; nom: string } | undefined,
+    numero: string
+  ): void {
+    const width = 180;
+
+    doc.save();
+    doc.strokeColor('#0f172a').lineWidth(1);
+    doc.moveTo(x, y + 32).lineTo(x + width, y + 32).stroke();
+
+    const signerName = createdBy ? `${createdBy.prenom} ${createdBy.nom}` : 'Signature';
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a');
+    doc.text(signerName, x, y + 36, { width, align: 'center' });
+
+    doc.font('Helvetica').fontSize(8).fillColor('#334155');
+    doc.text('Signature électronique', x, y + 52, { width, align: 'center' });
+
+    const hash = this.generateCertificationHash(`${numero}:${signerName}`);
+    doc.fontSize(6).fillColor('#64748b');
+    doc.text(`Cert: ${hash}`, x, y + 66, { width, align: 'center' });
+    doc.restore();
   }
 
-  private static generateCertificationHash(): string {
-    // Generate a fake certification hash for display
-    const chars = 'ABCDEF0123456789';
-    let hash = '';
-    for (let i = 0; i < 16; i++) {
-      hash += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return hash;
+  private static generateCertificationHash(input: string): string {
+    return crypto.createHash('sha256').update(input).digest('hex').slice(0, 16).toUpperCase();
+  }
+
+  private static formatMoney(amount: number): string {
+    return `${amount.toLocaleString('fr-FR')} FCFA`;
   }
 }
+

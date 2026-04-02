@@ -7,7 +7,6 @@ import { Button } from '../../components/ui/Button';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Select } from '../../components/ui/Form';
 import { useAuth } from '../../context/AuthContext';
-import { loadInvoicePrefsForOrderType } from '../../utils/invoicePrefs';
 import type { Order, OrderStatus } from '../../types/order';
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -67,8 +66,7 @@ export function OrderDetailPage() {
     if (!canModifyLocal) return;
     try {
       setIsGeneratingInvoice(true);
-      const prefs = loadInvoicePrefsForOrderType(order.type);
-      const result = await ordersApi.generateInvoice(id!, prefs);
+      const result = await ordersApi.generateInvoice(id!);
       setInvoiceUrl(result.downloadUrl);
       alert(order.invoice ? 'Facture régénérée avec succès' : 'Facture générée avec succès');
       await loadOrder(); // Reload to get updated invoice info

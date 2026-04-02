@@ -253,6 +253,46 @@ enum InvoiceStatus {
   en_retard
 }
 
+enum InvoiceSettingsScope {
+  global
+  pressing
+  atelier
+}
+
+model InvoiceSettings {
+  id             String               @id @default(uuid())
+  scope          InvoiceSettingsScope @unique
+
+  // Informations entreprise (scope=global)
+  companyName    String?
+  companyTagline String?
+  companyAddress String?
+  companyPhone   String?
+  companyEmail   String?
+  companyNIF     String?
+  companyRCCM    String?
+
+  // Cachet (scope=global)
+  stampEnabled   Boolean @default(true)
+  stampLine1     String?
+  stampLine2     String?
+  stampLine3     String?
+  stampColor     String  @default("#c41e3a")
+
+  // Pied de page (scope=global)
+  footerLine1    String?
+  footerLine2    String?
+
+  // Valeurs par défaut (scope=pressing/atelier)
+  tauxTVA        Float   @default(18)
+  notes          String?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([scope])
+}
+
 // Types de lavage pour le pressing
 model PressingLaundryType {
   id          String   @id @default(uuid())
