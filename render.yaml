@@ -7,7 +7,7 @@ services:
     startCommand: sh start.sh
     envVars:
       - key: DATABASE_URL
-        value: postgresql://espacekanaga:xwB07NAGWCoKFv4q1YY0mS300xU7wBde@dpg-d774f0f5r7bs73e5odp0-a.virginia-postgres.render.com:5432/kanaga?sslmode=require
+        value: postgresql://espacekanaga:xwB07NAGWCoKFv4q1YY0mS300xU7wBde@dpg-d774f0f5r7bs73esodp0-a.render.com:5432/kanaga?sslmode=require
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
