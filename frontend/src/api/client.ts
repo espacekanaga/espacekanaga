@@ -1,4 +1,4 @@
-import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
 import type { RefreshRequest, RefreshResponse } from '../types/auth';
 
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
@@ -53,8 +53,16 @@ function isAuthEndpoint(url: string | undefined) {
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const token = tokenStorage.getAccessToken();
-    if (token && config.headers && !isAuthEndpoint(config.url)) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (token && !isAuthEndpoint(config.url)) {
+      if (!config.headers) config.headers = new AxiosHeaders();
+      const headersAny = config.headers as any;
+      if (config.headers instanceof AxiosHeaders) {
+        config.headers.set('Authorization', `Bearer ${token}`);
+      } else if (typeof headersAny.set === 'function') {
+        headersAny.set('Authorization', `Bearer ${token}`);
+      } else {
+        headersAny.Authorization = `Bearer ${token}`;
+      }
     }
     return config;
   },
@@ -88,8 +96,14 @@ api.interceptors.response.use(
           isRefreshing = false;
           onTokenRefreshed(accessToken);
 
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+          if (!originalRequest.headers) originalRequest.headers = new AxiosHeaders();
+          const headersAny = originalRequest.headers as any;
+          if (originalRequest.headers instanceof AxiosHeaders) {
+            originalRequest.headers.set('Authorization', `Bearer ${accessToken}`);
+          } else if (typeof headersAny.set === 'function') {
+            headersAny.set('Authorization', `Bearer ${accessToken}`);
+          } else {
+            headersAny.Authorization = `Bearer ${accessToken}`;
           }
           return api(originalRequest);
         } catch (refreshError) {
@@ -103,8 +117,14 @@ api.interceptors.response.use(
       // If already refreshing, queue the request
       return new Promise((resolve) => {
         subscribeTokenRefresh((newToken: string) => {
-          if (originalRequest.headers) {
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          if (!originalRequest.headers) originalRequest.headers = new AxiosHeaders();
+          const headersAny = originalRequest.headers as any;
+          if (originalRequest.headers instanceof AxiosHeaders) {
+            originalRequest.headers.set('Authorization', `Bearer ${newToken}`);
+          } else if (typeof headersAny.set === 'function') {
+            headersAny.set('Authorization', `Bearer ${newToken}`);
+          } else {
+            headersAny.Authorization = `Bearer ${newToken}`;
           }
           resolve(api(originalRequest));
         });

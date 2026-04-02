@@ -181,7 +181,12 @@ ordersRouter.post("/", requireAuth, async (req, res) => {
 
 // Update order status
 ordersRouter.patch("/:id/status", requireAuth, async (req, res) => {
-  const schema = z.object({ status: z.enum(["EN_ATTENTE", "EN_COURS", "TERMINE", "ANNULE"]) });
+  const schema = z.object({
+    status: z.union([
+      z.enum(["en_attente", "en_cours", "termine", "livre"]),
+      z.enum(["EN_ATTENTE", "EN_COURS", "TERMINE", "LIVRE"]),
+    ]),
+  });
   const parsed = schema.safeParse(req.body);
   
   if (!parsed.success) {
@@ -189,11 +194,17 @@ ordersRouter.patch("/:id/status", requireAuth, async (req, res) => {
   }
 
   const statusMap: Record<string, OrderStatus> = {
-    EN_ATTENTE: OrderStatus.en_attente,
-    EN_COURS: OrderStatus.en_cours,
-    TERMINE: OrderStatus.termine,
-    ANNULE: OrderStatus.livre,
+    en_attente: OrderStatus.en_attente,
+    en_cours: OrderStatus.en_cours,
+    termine: OrderStatus.termine,
+    livre: OrderStatus.livre,
   };
+
+  const normalizedStatus = parsed.data.status.toLowerCase();
+  const nextStatus = statusMap[normalizedStatus];
+  if (!nextStatus) {
+    return res.status(400).json({ error: "Statut invalide" });
+  }
 
   const existing = await prisma.order.findUnique({
     where: { id: String(req.params.id) },
@@ -208,7 +219,7 @@ ordersRouter.patch("/:id/status", requireAuth, async (req, res) => {
   const order = await prisma.order.update({
     where: { id: String(req.params.id) },
     data: {
-      status: statusMap[parsed.data.status],
+      status: nextStatus,
       updatedById: req.user?.id,
     },
   });

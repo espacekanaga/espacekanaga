@@ -166,17 +166,27 @@ exports.ordersRouter.post("/", auth_middleware_1.requireAuth, async (req, res) =
 });
 // Update order status
 exports.ordersRouter.patch("/:id/status", auth_middleware_1.requireAuth, async (req, res) => {
-    const schema = zod_1.z.object({ status: zod_1.z.enum(["EN_ATTENTE", "EN_COURS", "TERMINE", "ANNULE"]) });
+    const schema = zod_1.z.object({
+        status: zod_1.z.union([
+            zod_1.z.enum(["en_attente", "en_cours", "termine", "livre"]),
+            zod_1.z.enum(["EN_ATTENTE", "EN_COURS", "TERMINE", "LIVRE"]),
+        ]),
+    });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.flatten() });
     }
     const statusMap = {
-        EN_ATTENTE: client_1.OrderStatus.en_attente,
-        EN_COURS: client_1.OrderStatus.en_cours,
-        TERMINE: client_1.OrderStatus.termine,
-        ANNULE: client_1.OrderStatus.livre,
+        en_attente: client_1.OrderStatus.en_attente,
+        en_cours: client_1.OrderStatus.en_cours,
+        termine: client_1.OrderStatus.termine,
+        livre: client_1.OrderStatus.livre,
     };
+    const normalizedStatus = parsed.data.status.toLowerCase();
+    const nextStatus = statusMap[normalizedStatus];
+    if (!nextStatus) {
+        return res.status(400).json({ error: "Statut invalide" });
+    }
     const existing = await prismaClient_1.prisma.order.findUnique({
         where: { id: String(req.params.id) },
         select: { id: true, type: true },
@@ -189,7 +199,7 @@ exports.ordersRouter.patch("/:id/status", auth_middleware_1.requireAuth, async (
     const order = await prismaClient_1.prisma.order.update({
         where: { id: String(req.params.id) },
         data: {
-            status: statusMap[parsed.data.status],
+            status: nextStatus,
             updatedById: req.user?.id,
         },
     });
