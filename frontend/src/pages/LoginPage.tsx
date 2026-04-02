@@ -8,10 +8,12 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [loginSuccess, setLoginSuccess] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotStep, setForgotStep] = useState<'input' | 'success'>('input');
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const { showError, showSuccess } = useToast();
   const navigate = useNavigate();
 
@@ -22,14 +24,60 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setLoginError('');
+    setLoginSuccess(false);
 
     try {
       const trimmed = identifier.trim();
+      if (!trimmed) {
+        setLoginError('Veuillez saisir votre email ou telephone');
+        setIsLoading(false);
+        return;
+      }
+      if (!password) {
+        setLoginError('Veuillez saisir votre mot de passe');
+        setIsLoading(false);
+        return;
+      }
+
       const isEmail = trimmed.includes('@');
       await login(isEmail ? { email: trimmed, password } : { telephone: trimmed, password });
-      navigate('/');
-    } catch (error) {
-      showError(error instanceof Error ? error.message : 'Erreur de connexion');
+      
+      setLoginSuccess(true);
+      showSuccess(`Bienvenue ${user?.prenom || ''} ${user?.nom || ''} ! Connexion reussie`);
+      
+      setTimeout(() => {
+        navigate('/');
+      }, 1500);
+    } catch (error: any) {
+      let errorMsg = 'Erreur de connexion';
+      
+      if (error.response) {
+        const status = error.response.status;
+        switch (status) {
+          case 401:
+            errorMsg = 'Email/telephone ou mot de passe incorrect';
+            break;
+          case 404:
+            errorMsg = 'Service indisponible - verifiez votre connexion';
+            break;
+          case 500:
+            errorMsg = 'Erreur serveur - veuillez reessayer plus tard';
+            break;
+          case 503:
+            errorMsg = 'Service temporairement indisponible';
+            break;
+          default:
+            errorMsg = error.response.data?.message || `Erreur ${status}`;
+        }
+      } else if (error.request) {
+        errorMsg = 'Impossible de contacter le serveur - verifiez votre connexion internet';
+      } else {
+        errorMsg = error instanceof Error ? error.message : 'Erreur de connexion';
+      }
+      
+      setLoginError(errorMsg);
+      showError(errorMsg);
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +117,33 @@ export function LoginPage() {
         </div>
         
         <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-8 shadow-2xl">
+          {/* Message d'erreur */}
+          {loginError && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+              <div className="flex items-center gap-2 text-red-400">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="text-sm font-medium">{loginError}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Message de succes */}
+          {loginSuccess && (
+            <div className="mb-6 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+              <div className="flex items-center gap-2 text-green-400">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium">Connexion reussie !</p>
+                  <p className="text-xs">Bienvenue {user?.prenom || ''} {user?.nom || ''}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Email ou téléphone</label>

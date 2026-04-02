@@ -8,6 +8,7 @@ import { Input, TextArea } from '../../components/ui/Form';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
+import { InvoicePreview } from '../../components/invoice/InvoicePreview';
 
 type Theme = 'dark' | 'light' | 'system';
 
@@ -273,67 +274,92 @@ export function SettingsPage() {
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input
-                    label="Nom de l'entreprise"
-                    value={globalInvoiceForm.companyName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setGlobalInvoiceForm({ ...globalInvoiceForm, companyName: e.target.value })
-                    }
-                    disabled={!canEditInvoiceGlobal}
-                  />
-                  <Input
-                    label="Slogan / Activité"
-                    value={globalInvoiceForm.companyTagline}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setGlobalInvoiceForm({ ...globalInvoiceForm, companyTagline: e.target.value })
-                    }
-                    disabled={!canEditInvoiceGlobal}
-                  />
-                  <Input
-                    label="Telephone"
-                    value={globalInvoiceForm.companyPhone}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setGlobalInvoiceForm({ ...globalInvoiceForm, companyPhone: e.target.value })
-                    }
-                    disabled={!canEditInvoiceGlobal}
-                  />
-                  <Input
-                    label="Email"
-                    value={globalInvoiceForm.companyEmail}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setGlobalInvoiceForm({ ...globalInvoiceForm, companyEmail: e.target.value })
-                    }
-                    disabled={!canEditInvoiceGlobal}
-                  />
-                  <Input
-                    label="NIF (optionnel)"
-                    value={globalInvoiceForm.companyNIF}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setGlobalInvoiceForm({ ...globalInvoiceForm, companyNIF: e.target.value })
-                    }
-                    disabled={!canEditInvoiceGlobal}
-                  />
-                  <Input
-                    label="RCCM (optionnel)"
-                    value={globalInvoiceForm.companyRCCM}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setGlobalInvoiceForm({ ...globalInvoiceForm, companyRCCM: e.target.value })
-                    }
-                    disabled={!canEditInvoiceGlobal}
-                  />
-                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Formulaire */}
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Input
+                        label="Nom de l'entreprise"
+                        value={globalInvoiceForm.companyName}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setGlobalInvoiceForm({ ...globalInvoiceForm, companyName: e.target.value })
+                        }
+                        disabled={!canEditInvoiceGlobal}
+                      />
+                      <Input
+                        label="Slogan / Activite"
+                        value={globalInvoiceForm.companyTagline}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setGlobalInvoiceForm({ ...globalInvoiceForm, companyTagline: e.target.value })
+                        }
+                        disabled={!canEditInvoiceGlobal}
+                      />
+                      <Input
+                        label="Telephone"
+                        value={globalInvoiceForm.companyPhone}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setGlobalInvoiceForm({ ...globalInvoiceForm, companyPhone: e.target.value })
+                        }
+                        disabled={!canEditInvoiceGlobal}
+                      />
+                      <Input
+                        label="Email"
+                        value={globalInvoiceForm.companyEmail}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setGlobalInvoiceForm({ ...globalInvoiceForm, companyEmail: e.target.value })
+                        }
+                        disabled={!canEditInvoiceGlobal}
+                      />
+                      <Input
+                        label="NIF (optionnel)"
+                        value={globalInvoiceForm.companyNIF}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setGlobalInvoiceForm({ ...globalInvoiceForm, companyNIF: e.target.value })
+                        }
+                        disabled={!canEditInvoiceGlobal}
+                      />
+                      <Input
+                        label="RCCM (optionnel)"
+                        value={globalInvoiceForm.companyRCCM}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          setGlobalInvoiceForm({ ...globalInvoiceForm, companyRCCM: e.target.value })
+                        }
+                        disabled={!canEditInvoiceGlobal}
+                      />
+                    </div>
 
-                <TextArea
-                  label="Adresse (optionnel)"
-                  placeholder="Ex: Tieguena face à l'école fondamentale"
-                  value={globalInvoiceForm.companyAddress}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                    setGlobalInvoiceForm({ ...globalInvoiceForm, companyAddress: e.target.value })
-                  }
-                  disabled={!canEditInvoiceGlobal}
-                  className="min-h-[80px]"
-                />
+                    <TextArea
+                      label="Adresse (optionnel)"
+                      placeholder="Ex: Tieguena face a l'ecole fondamentale"
+                      value={globalInvoiceForm.companyAddress}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                        setGlobalInvoiceForm({ ...globalInvoiceForm, companyAddress: e.target.value })
+                      }
+                      disabled={!canEditInvoiceGlobal}
+                      className="min-h-[80px]"
+                    />
+                  </div>
+
+                  {/* Apercu */}
+                  <div className="lg:sticky lg:top-4">
+                    <InvoicePreview
+                      companyName={globalInvoiceForm.companyName}
+                      companyTagline={globalInvoiceForm.companyTagline}
+                      companyPhone={globalInvoiceForm.companyPhone}
+                      companyEmail={globalInvoiceForm.companyEmail}
+                      companyAddress={globalInvoiceForm.companyAddress}
+                      companyNIF={globalInvoiceForm.companyNIF}
+                      companyRCCM={globalInvoiceForm.companyRCCM}
+                      stampEnabled={globalInvoiceForm.stampEnabled}
+                      stampColor={globalInvoiceForm.stampColor}
+                      stampLine1={globalInvoiceForm.stampLine1}
+                      stampLine2={globalInvoiceForm.stampLine2}
+                      stampLine3={globalInvoiceForm.stampLine3}
+                      footerLine1={globalInvoiceForm.footerLine1}
+                      footerLine2={globalInvoiceForm.footerLine2}
+                    />
+                  </div>
+                </div>
 
                 <div className="border-t border-slate-200/70 dark:border-slate-700/50 pt-6 space-y-4">
                   <p className="font-medium text-slate-900 dark:text-slate-100">Cachet & pied de page</p>

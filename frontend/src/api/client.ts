@@ -1,8 +1,14 @@
 import axios, { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
 import type { RefreshRequest, RefreshResponse } from '../types/auth';
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+// Ensure API_URL always ends with /api
+const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+export const API_URL = rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`;
 export const API_ORIGIN = API_URL.replace(/\/api\/?$/, '');
+
+// Debug: Log the API URL being used
+console.log('[API] Raw VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('[API] Final API_URL:', API_URL);
 
 export const api = axios.create({
   baseURL: API_URL,
