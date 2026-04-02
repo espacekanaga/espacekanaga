@@ -1,0 +1,364 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  EMPLOYEE
+}
+
+enum OrderType {
+  pressing
+  couture
+}
+
+enum OrderStatus {
+  en_attente
+  en_cours
+  termine
+  livre
+}
+
+enum MeasurementFieldType {
+  number
+  text
+}
+
+enum CoutureServiceType {
+  retouche
+  sur_mesure
+}
+
+enum ClientType {
+  pressing
+  atelier
+  both
+}
+
+model User {
+  id           String   @id @default(uuid())
+  prenom       String
+  nom          String
+  telephone    String   @unique
+  email        String?  @unique
+  adresse      String?
+  passwordHash String
+  role         UserRole @default(EMPLOYEE)
+  isActive     Boolean  @default(true)
+  
+  // Permissions d'accès aux espaces de travail
+  accessPressing Boolean @default(false)
+  accessAtelier  Boolean @default(false)
+  
+  // Préférences utilisateur
+  theme        String   @default("dark") // dark, light, system
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdOrders Order[] @relation("orders_created_by")
+  updatedOrders Order[] @relation("orders_updated_by")
+
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+
+  @@index([nom, prenom])
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  userId     String
+  tokenHash  String   @unique
+  revokedAt  DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  actorUserId String?
+  action      String
+  entityType  String?
+  entityId    String?
+  metadata    Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  actorUser User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model Client {
+  id        String   @id @default(uuid())
+  nom       String
+  prenom    String
+  telephone String   @unique
+  email     String?
+  adresse   String?
+  notes     String?
+  
+  // Origine client - pressing, atelier, ou les deux
+  clientType ClientType @default(both)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders        Order[]
+  measurements  Measurement[]
+  inscriptions  FormationInscription[]
+
+  @@index([nom, prenom])
+  @@index([clientType])
+}
+
+model MeasurementField {
+  id       String               @id @default(uuid())
+  name     String               @unique
+  label    String
+  type     MeasurementFieldType
+  unite    String?
+  isActive Boolean              @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+}
+
+model Measurement {
+  id        String   @id @default(uuid())
+  clientId  String
+  orderId   String?
+  data      Json
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  order  Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  coutureOrder CoutureOrder?
+
+  @@index([clientId])
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model Order {
+  id        String      @id @default(uuid())
+  clientId  String
+  type      OrderType
+  status    OrderStatus @default(en_attente)
+  prixTotal Float
+
+  createdById String
+  updatedById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  createdBy User @relation("orders_created_by", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("orders_updated_by", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  pressing PressingOrder?
+  couture  CoutureOrder?
+
+  measurements Measurement[]
+
+  invoice Invoice?
+
+  @@index([clientId])
+  @@index([type, status])
+  @@index([createdAt])
+}
+
+model PressingOrder {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  typeVetement    String
+  quantite        Int
+  typeService     String
+  instructions    String?
+  dateRecuperation DateTime?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model CoutureOrder {
+  id          String            @id @default(uuid())
+  orderId     String            @unique
+  typeService CoutureServiceType
+  description String?
+  measurementId String? @unique
+  tissu       String?
+  deadline    DateTime?
+  modelImage  String?           // URL/path to the model/retouche photo
+
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  measurement Measurement? @relation(fields: [measurementId], references: [id], onDelete: SetNull)
+
+  @@index([measurementId])
+}
+
+model Invoice {
+  id          String    @id @default(uuid())
+  orderId     String    @unique
+  numero      String    @unique
+  dateEmission DateTime @default(now())
+  dateEcheance DateTime?
+  
+  // Montants
+  montantHT   Float
+  tauxTVA     Float    @default(18)
+  montantTVA  Float
+  montantTTC  Float
+  
+  // Détails ajustables (JSON pour flexibilité)
+  lignes      Json     // [{description, quantite, prixUnitaire, montant}, ...]
+  notes       String?
+  
+  // Statut et paiement
+  statut      InvoiceStatus @default(emise)
+  datePaiement DateTime?
+  modePaiement String?   // espèces, carte, virement, mobile_money
+  
+  filePath    String?   // Chemin vers PDF généré
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([numero])
+  @@index([statut])
+  @@index([dateEmission])
+}
+
+enum InvoiceStatus {
+  emise
+  envoyee
+  payee
+  annulee
+  en_retard
+}
+
+// Types de lavage pour le pressing
+model PressingLaundryType {
+  id          String   @id @default(uuid())
+  nom         String   @unique
+  description String?
+  prixBase    Float    @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  services PressingService[]
+}
+
+// Articles lavables au pressing
+model PressingArticle {
+  id          String   @id @default(uuid())
+  nom         String
+  categorie   String   // vetement, linge_maison, cuir, etc.
+  description String?
+  prixBase    Float    @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  services PressingService[]
+  
+  @@index([categorie])
+}
+
+// Services pressing (lien entre type de lavage et article avec prix)
+model PressingService {
+  id                String @id @default(uuid())
+  laundryTypeId     String
+  articleId         String
+  prix              Float
+  dureeEstimee      Int    // en minutes
+  instructions      String?
+  
+  laundryType PressingLaundryType @relation(fields: [laundryTypeId], references: [id])
+  article     PressingArticle     @relation(fields: [articleId], references: [id])
+  
+  @@unique([laundryTypeId, articleId])
+  @@index([articleId])
+}
+
+// Formations en couture
+model Formation {
+  id          String   @id @default(uuid())
+  nom         String
+  description String?
+  niveau      String   // debutant, intermediaire, avance
+  duree       Int      // en heures
+  prix        Float
+  maxParticipants Int  @default(10)
+  dateDebut   DateTime?
+  dateFin     DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  inscriptions FormationInscription[]
+  
+  @@index([niveau])
+  @@index([isActive])
+}
+
+// Inscriptions aux formations
+model FormationInscription {
+  id          String   @id @default(uuid())
+  formationId String
+  clientId    String
+  dateInscription DateTime @default(now())
+  statut      String   @default("en_attente") // en_attente, confirmee, annulee, terminee
+  paiement    Float    @default(0)
+  notes       String?
+
+  formation Formation @relation(fields: [formationId], references: [id])
+  client    Client    @relation(fields: [clientId], references: [id])
+
+  @@unique([formationId, clientId])
+  @@index([clientId])
+  @@index([statut])
+}
+
+// Types de services pour l'atelier (plus détaillé)
+enum AtelierServiceType {
+  retouche
+  confection_sur_mesure
+  reparation
+  transformation
+  broderie
+}
+
+// Stock de tissus pour l'atelier
+model StockTissu {
+  id          String   @id @default(uuid())
+  nom         String
+  type        String   // coton, soie, lin, polyester, etc.
+  couleur     String?
+  quantite    Float    // en mètres
+  prixMetre   Float
+  fournisseur String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+}

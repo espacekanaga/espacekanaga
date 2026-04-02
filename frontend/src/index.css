@@ -1,0 +1,291 @@
+@import "tailwindcss";
+
+/* Theme Configuration - Ocean/Pressing Colors */
+@theme {
+  /* Ocean Colors */
+  --color-ocean-900: #0c4a6e;
+  --color-ocean-800: #075985;
+  --color-ocean-700: #0369a1;
+  --color-ocean-600: #0284c7;
+  --color-ocean-500: #0ea5e9;
+  --color-ocean-400: #38bdf8;
+  --color-ocean-300: #7dd3fc;
+  --color-ocean-200: #bae6fd;
+  --color-ocean-100: #e0f2fe;
+  
+  /* Aqua/Cyan Accent */
+  --color-aqua-500: #06b6d4;
+  --color-aqua-400: #22d3ee;
+  --color-aqua-300: #67e8f9;
+  
+  /* Primary - Ocean gradient */
+  --color-primary: #0ea5e9;
+  --color-primary-light: #38bdf8;
+  --color-primary-dark: #0284c7;
+  
+  /* Background - Deep Ocean Dark */
+  --color-bg-primary: #0a1628;
+  --color-bg-secondary: #0f1d32;
+  --color-bg-tertiary: #152238;
+  
+  /* Text */
+  --color-text-primary: #f0f9ff;
+  --color-text-secondary: #bae6fd;
+  --color-text-muted: #7dd3fc;
+}
+
+/* Base */
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --input-bg: rgba(255, 255, 255, 0.8);
+  --input-border: rgba(148, 163, 184, 0.55);
+  --input-text: #0f172a;
+  --input-placeholder: #94a3b8;
+  --input-label: #475569;
+}
+
+html.dark {
+  --input-bg: rgba(10, 22, 40, 0.6);
+  --input-border: rgba(56, 189, 248, 0.25);
+  --input-text: #f0f9ff;
+  --input-placeholder: #475569;
+  --input-label: #7dd3fc;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: linear-gradient(135deg, #0a1628 0%, #0f1d32 50%, #0a1628 100%);
+  color: #f0f9ff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Login Page */
+.login-container {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 24px;
+  background: linear-gradient(135deg, #0a1628 0%, #0f1d32 50%, #0a1628 100%);
+}
+
+.login-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(14, 165, 233, 0.2) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(6, 182, 212, 0.15) 0%, transparent 50%);
+}
+
+.login-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: 28px;
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  box-shadow:
+    0 0 30px rgba(14, 165, 233, 0.15),
+    rgba(0, 0, 0, 0.25) 0 20px 50px;
+  background: rgba(15, 29, 50, 0.9);
+  animation: slideUp 0.6s ease-out;
+}
+
+.login-title {
+  font-size: 36px;
+  line-height: 1.1;
+  font-weight: 800;
+  text-align: center;
+  margin: 0 0 8px;
+  background-image: linear-gradient(135deg, #38bdf8 0%, #22d3ee 50%, #0ea5e9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.login-subtitle {
+  text-align: center;
+  color: #7dd3fc;
+  margin: 0 0 22px;
+  font-size: 14px;
+}
+
+@media (max-width: 420px) {
+  .login-card {
+    padding: 22px;
+  }
+  .login-title {
+    font-size: 30px;
+  }
+}
+
+/* Form */
+.input-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--input-label);
+  margin-bottom: 8px;
+}
+
+.input-field {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--input-text);
+  outline: none;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.input-field::placeholder {
+  color: var(--input-placeholder);
+}
+
+.input-field:focus {
+  border-color: rgba(14, 165, 233, 0.8);
+  box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.2);
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+  background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 50%, #06b6d4 100%);
+  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.35);
+}
+
+.btn-primary:hover:enabled {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 32px rgba(14, 165, 233, 0.45);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Spinner */
+.spinner-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  border: 4px solid rgba(125, 211, 252, 0.2);
+  border-top-color: #0ea5e9;
+  animation: spin 1s linear infinite;
+}
+
+.spinner-lg {
+  width: 64px;
+  height: 64px;
+  border-width: 4px;
+}
+
+.spinner-sm {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+}
+
+.loading-text {
+  font-size: 14px;
+  color: #7dd3fc;
+}
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 6, 23, 0.7);
+  backdrop-filter: blur(10px);
+}
+
+.loading-card {
+  padding: 28px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  background: rgba(30, 41, 59, 0.92);
+}
+
+.empty-state {
+  padding: 56px 16px;
+  text-align: center;
+  color: #7dd3fc;
+}
+
+.empty-state-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 12px;
+  opacity: 0.6;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Calendar icon color for date inputs */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(70%) sepia(80%) saturate(800%) hue-rotate(170deg) brightness(90%);
+  cursor: pointer;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(70%) sepia(80%) saturate(800%) hue-rotate(170deg) brightness(110%);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
