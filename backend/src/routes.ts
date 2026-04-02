@@ -9,6 +9,11 @@ import { measurementsRouter } from "./modules/controllers/measurements.controlle
 import { invoicesRouter } from "./modules/controllers/invoices.controller";
 
 export function registerRoutes(app: Express) {
+  // Health check
+  app.get("/api/health", (_req, res) => {
+    res.json({ ok: true, timestamp: new Date().toISOString() });
+  });
+
   app.use("/api/auth", authRouter);
   app.use("/api/clients", clientsRouter);
   app.use("/api/orders", ordersRouter);
