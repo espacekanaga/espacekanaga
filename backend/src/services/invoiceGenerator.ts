@@ -33,6 +33,7 @@ interface InvoiceData {
     prenom: string;
     nom: string;
   };
+  notes?: string;
 }
 
 export class InvoiceGenerator {
@@ -113,6 +114,14 @@ export class InvoiceGenerator {
     
     doc.fontSize(12).text('TOTAL TTC:', 350, totalsTop + 45, { width: 100, align: 'right' });
     doc.text(data.montantTTC.toLocaleString('fr-FR') + ' FCFA', 460, totalsTop + 45, { width: 80, align: 'right' });
+
+    // Notes
+    if (data.notes && data.notes.trim().length) {
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#111');
+      doc.text('Notes:', 50, totalsTop + 45, { width: 280 });
+      doc.font('Helvetica').fontSize(9).fillColor('#333');
+      doc.text(data.notes.trim(), 50, totalsTop + 60, { width: 280 });
+    }
 
     // Digital Stamp (Cachet numérique)
     const stampY = totalsTop + 80;

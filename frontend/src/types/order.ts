@@ -63,7 +63,7 @@ export interface CoutureOrder {
 export interface Invoice {
   id: string;
   orderId: string;
-  filePath: string;
+  filePath?: string | null;
   createdAt: string;
 }
 

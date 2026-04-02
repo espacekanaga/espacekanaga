@@ -212,6 +212,16 @@ exports.ordersRouter.delete("/:id", auth_middleware_1.requireAuth, async (req, r
 // Generate invoice for order
 exports.ordersRouter.post("/:id/invoice", auth_middleware_1.requireAuth, async (req, res) => {
     const { id } = req.params;
+    const settingsSchema = zod_1.z.object({
+        tauxTVA: zod_1.z.coerce.number().min(0).max(100).optional(),
+        notes: zod_1.z.string().max(2000).optional(),
+    });
+    const settings = settingsSchema.safeParse(req.body ?? {});
+    if (!settings.success) {
+        return res.status(400).json({ error: settings.error.flatten() });
+    }
+    const tauxTVA = settings.data.tauxTVA ?? 18;
+    const notes = settings.data.notes;
     // Check if order exists
     const order = await prismaClient_1.prisma.order.findUnique({
         where: { id: String(id) },
@@ -229,15 +239,16 @@ exports.ordersRouter.post("/:id/invoice", auth_middleware_1.requireAuth, async (
     if (!canModifyOrder(order.type, req.user)) {
         return res.status(403).json({ error: "Accès refusé" });
     }
-    // Check if invoice already exists
-    if (order.invoice) {
-        return res.status(409).json({ error: "Une facture existe déjà pour cette commande" });
+    const existingInvoice = order.invoice;
+    // Generate invoice number (keep same number if invoice already exists)
+    let numero = existingInvoice?.numero;
+    if (!numero) {
+        const invoiceCount = await prismaClient_1.prisma.invoice.count();
+        numero = `F-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(4, '0')}`;
     }
-    // Generate invoice number
-    const invoiceCount = await prismaClient_1.prisma.invoice.count();
-    const numero = `F-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(4, '0')}`;
     // Calculate amounts
-    const montantHT = order.prixTotal / 1.18; // Assuming 18% VAT
+    const divisor = 1 + tauxTVA / 100;
+    const montantHT = divisor === 0 ? order.prixTotal : order.prixTotal / divisor;
     const montantTVA = order.prixTotal - montantHT;
     // Build invoice lines
     const lignes = [];
@@ -257,43 +268,105 @@ exports.ordersRouter.post("/:id/invoice", auth_middleware_1.requireAuth, async (
             montant: order.prixTotal,
         });
     }
-    // Generate PDF invoice
-    const pdfUrl = await invoiceGenerator_1.InvoiceGenerator.generateInvoicePDF({
-        numero,
-        date: new Date(),
-        client: order.client,
-        order: {
-            id: order.id,
-            type: order.type,
-            status: order.status,
-            prixTotal: order.prixTotal,
-            createdAt: order.createdAt,
-        },
-        lignes,
-        montantHT,
-        tauxTVA: 18,
-        montantTVA,
-        montantTTC: order.prixTotal,
-        createdBy: order.createdBy || undefined,
-    });
-    // Create invoice record with PDF URL
-    const invoice = await prismaClient_1.prisma.invoice.create({
-        data: {
+    const buildPdf = async (invoiceNumero) => {
+        return invoiceGenerator_1.InvoiceGenerator.generateInvoicePDF({
+            numero: invoiceNumero,
+            date: new Date(),
+            client: order.client,
+            order: {
+                id: order.id,
+                type: order.type,
+                status: order.status,
+                prixTotal: order.prixTotal,
+                createdAt: order.createdAt,
+            },
+            lignes,
+            montantHT,
+            tauxTVA,
+            montantTVA,
+            montantTTC: order.prixTotal,
+            createdBy: order.createdBy || undefined,
+            notes,
+        });
+    };
+    let pdfUrl = await buildPdf(numero);
+    let invoiceAlreadyExists = !!existingInvoice;
+    let invoice = existingInvoice
+        ? await prismaClient_1.prisma.invoice.update({
+            where: { id: existingInvoice.id },
+            data: {
+                montantHT,
+                tauxTVA,
+                montantTVA,
+                montantTTC: order.prixTotal,
+                lignes,
+                filePath: pdfUrl,
+                notes: notes ?? null,
+            },
+        })
+        : null;
+    if (!invoice) {
+        const createData = {
             orderId: order.id,
             numero,
             montantHT,
-            tauxTVA: 18,
+            tauxTVA,
             montantTVA,
             montantTTC: order.prixTotal,
             lignes,
-            statut: 'emise',
+            statut: "emise",
             filePath: pdfUrl,
-        },
-    });
-    res.status(201).json({
-        message: "Facture générée avec succès",
+            notes: notes ?? null,
+        };
+        try {
+            invoice = await prismaClient_1.prisma.invoice.create({ data: createData });
+        }
+        catch (err) {
+            if (err instanceof client_1.Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+                const target = err.meta?.target;
+                const targets = Array.isArray(target) ? target : typeof target === "string" ? [target] : [];
+                if (targets.includes("orderId")) {
+                    const current = await prismaClient_1.prisma.invoice.findUnique({ where: { orderId: order.id } });
+                    if (!current)
+                        throw err;
+                    invoiceAlreadyExists = true;
+                    if (current.numero !== numero) {
+                        numero = current.numero;
+                        pdfUrl = await buildPdf(numero);
+                    }
+                    invoice = await prismaClient_1.prisma.invoice.update({
+                        where: { id: current.id },
+                        data: {
+                            montantHT,
+                            tauxTVA,
+                            montantTVA,
+                            montantTTC: order.prixTotal,
+                            lignes,
+                            filePath: pdfUrl,
+                            notes: notes ?? null,
+                        },
+                    });
+                }
+                else if (targets.includes("numero")) {
+                    const invoiceCount = await prismaClient_1.prisma.invoice.count();
+                    numero = `F-${new Date().getFullYear()}-${String(invoiceCount + 1).padStart(4, "0")}`;
+                    pdfUrl = await buildPdf(numero);
+                    invoice = await prismaClient_1.prisma.invoice.create({ data: { ...createData, numero, filePath: pdfUrl } });
+                }
+                else {
+                    throw err;
+                }
+            }
+            else {
+                throw err;
+            }
+        }
+    }
+    res.status(invoiceAlreadyExists ? 200 : 201).json({
+        message: invoiceAlreadyExists ? "Facture régénérée avec succès" : "Facture générée avec succès",
         invoice,
         pdfUrl,
-        downloadUrl: `${process.env.API_URL || 'http://localhost:4000'}${pdfUrl}`,
+        filePath: pdfUrl,
+        downloadUrl: `${req.protocol}://${req.get("host")}${pdfUrl}`,
     });
 });

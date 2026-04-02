@@ -25,6 +25,7 @@ export function OrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const [newStatus, setNewStatus] = useState<OrderStatus | ''>('');
 
   useEffect(() => {
@@ -61,14 +62,20 @@ export function OrderDetailPage() {
 
   const handleGenerateInvoice = async () => {
     if (!order) return;
+    const canModifyLocal =
+      isSuperAdmin || (order.type === 'pressing' ? hasPressingAccess : hasAtelierAccess);
+    if (!canModifyLocal) return;
     try {
+      setIsGeneratingInvoice(true);
       const prefs = loadInvoicePrefsForOrderType(order.type);
       const result = await ordersApi.generateInvoice(id!, prefs);
       setInvoiceUrl(result.downloadUrl);
-      alert('Facture générée avec succès');
-      loadOrder(); // Reload to get updated invoice info
+      alert(order.invoice ? 'Facture régénérée avec succès' : 'Facture générée avec succès');
+      await loadOrder(); // Reload to get updated invoice info
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsGeneratingInvoice(false);
     }
   };
 
@@ -105,18 +112,23 @@ export function OrderDetailPage() {
           WhatsApp
         </Button>
         {order.invoice?.filePath ? (
-          <Button 
-            variant="secondary" 
-            onClick={() => {
-              const url = invoiceUrl || `${API_ORIGIN}${order.invoice?.filePath}`;
-              if (url) window.open(url, '_blank');
-            }}
-          >
-            Voir facture
-          </Button>
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const url = invoiceUrl || `${API_ORIGIN}${order.invoice?.filePath}`;
+                if (url) window.open(url, '_blank');
+              }}
+            >
+              Voir facture
+            </Button>
+            <Button onClick={handleGenerateInvoice} disabled={!canModify} isLoading={isGeneratingInvoice}>
+              Régénérer facture
+            </Button>
+          </>
         ) : (
-          <Button onClick={handleGenerateInvoice} disabled={!canModify}>
-            {order.invoice ? 'Regénérer facture' : 'Générer facture'}
+          <Button onClick={handleGenerateInvoice} disabled={!canModify} isLoading={isGeneratingInvoice}>
+            Générer facture
           </Button>
         )}
       </PageHeader>

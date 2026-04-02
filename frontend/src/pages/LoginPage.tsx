@@ -41,7 +41,7 @@ export function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-violet-400">
-            Kanaga ERP
+            Espace Kanaga
           </h1>
           <p className="mt-2 text-slate-400">Connexion au système</p>
         </div>

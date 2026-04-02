@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../../api/users';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Form';
+import { Input, TextArea } from '../../components/ui/Form';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
+import { loadInvoicePrefsForOrderType, saveInvoicePrefsForOrderType, type InvoicePrefs } from '../../utils/invoicePrefs';
 
 type Theme = 'dark' | 'light' | 'system';
 
@@ -22,6 +23,13 @@ export function SettingsPage() {
     newPassword: '',
     confirmPassword: '',
   });
+
+  const [pressingInvoicePrefs, setPressingInvoicePrefs] = useState<InvoicePrefs>(() =>
+    loadInvoicePrefsForOrderType('pressing')
+  );
+  const [atelierInvoicePrefs, setAtelierInvoicePrefs] = useState<InvoicePrefs>(() =>
+    loadInvoicePrefsForOrderType('couture')
+  );
 
   const resolvedTheme = useMemo(() => {
     if (theme !== 'system') return theme;
@@ -66,6 +74,16 @@ export function SettingsPage() {
       showError(err instanceof Error ? err.message : 'Erreur lors du changement de mot de passe');
     } finally {
       setIsChangingPassword(false);
+    }
+  };
+
+  const handleSaveInvoicePrefs = (type: 'pressing' | 'couture') => {
+    try {
+      const prefs = type === 'pressing' ? pressingInvoicePrefs : atelierInvoicePrefs;
+      saveInvoicePrefsForOrderType(type, prefs);
+      showSuccess('Paramètres de facturation enregistrés');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Erreur lors de l’enregistrement');
     }
   };
 
@@ -117,6 +135,85 @@ export function SettingsPage() {
             />
 
             {isSavingTheme && <p className="text-xs text-slate-400 pt-2">Enregistrement...</p>}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                <ReceiptIcon className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Facturation</h3>
+                <p className="text-sm text-slate-400">Valeurs par défaut (Pressing / Atelier)</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="font-medium text-slate-900 dark:text-slate-100">Pressing</p>
+                <Button variant="secondary" onClick={() => handleSaveInvoicePrefs('pressing')}>
+                  Enregistrer
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="TVA (%)"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={pressingInvoicePrefs.tauxTVA}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setPressingInvoicePrefs({ ...pressingInvoicePrefs, tauxTVA: Number(e.target.value) })
+                  }
+                />
+              </div>
+              <TextArea
+                label="Notes (optionnel)"
+                placeholder="Ex: Merci de votre confiance..."
+                value={pressingInvoicePrefs.notes}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                  setPressingInvoicePrefs({ ...pressingInvoicePrefs, notes: e.target.value })
+                }
+              />
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Ces valeurs seront utilisées lors de la génération d&apos;une facture Pressing.
+              </p>
+            </div>
+
+            <div className="border-t border-slate-200/70 dark:border-slate-700/50 pt-6 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="font-medium text-slate-900 dark:text-slate-100">Atelier</p>
+                <Button variant="secondary" onClick={() => handleSaveInvoicePrefs('couture')}>
+                  Enregistrer
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="TVA (%)"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={atelierInvoicePrefs.tauxTVA}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setAtelierInvoicePrefs({ ...atelierInvoicePrefs, tauxTVA: Number(e.target.value) })
+                  }
+                />
+              </div>
+              <TextArea
+                label="Notes (optionnel)"
+                placeholder="Ex: Délai de retouche..."
+                value={atelierInvoicePrefs.notes}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                  setAtelierInvoicePrefs({ ...atelierInvoicePrefs, notes: e.target.value })
+                }
+              />
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Ces valeurs seront utilisées lors de la génération d&apos;une facture Atelier.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -240,7 +337,7 @@ export function SettingsPage() {
               </div>
               <div className="flex justify-between py-2 border-b border-slate-200/70 dark:border-slate-700/50">
                 <span className="text-slate-400">Nom</span>
-                <span className="text-slate-900 dark:text-slate-200">Espace Kanaga ERP</span>
+                <span className="text-slate-900 dark:text-slate-200">Espace Espace Kanaga</span>
               </div>
               <div className="flex justify-between py-2">
                 <span className="text-slate-400">Développé par</span>
@@ -412,6 +509,14 @@ function LockIcon({ className }: { className?: string }) {
         strokeWidth={2}
         d="M17 11V8a5 5 0 10-10 0v3m-1 0h12a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6a2 2 0 012-2z"
       />
+    </svg>
+  );
+}
+
+function ReceiptIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l2 2 4-4M7 2h10a2 2 0 012 2v18l-3-2-3 2-3-2-3 2-3-2V4a2 2 0 012-2z" />
     </svg>
   );
 }

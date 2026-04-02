@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: espace-kanaga-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: espace-kanaga-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+      - key: API_URL
+        value: https://espace-kanaga-api.onrender.com
+      - key: PORT
+        value: 10000
+
+databases:
+  - name: espace-kanaga-db
+    databaseName: espacekanaga
+    user: espacekanaga

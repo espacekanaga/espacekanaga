@@ -1,1 +1,35 @@
 node_modules
+
+# Environment files
+.env
+.env.local
+.env.*.local
+backend/.env
+backend/.env.production
+backend/.env.development
+frontend/.env
+frontend/.env.production
+frontend/.env.development
+
+# Build outputs
+backend/dist/
+frontend/dist/
+*.log
+
+# Uploads and generated files
+backend/uploads/
+backend/public/invoices/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+
+# Render/Netlify local
+.netlify/
+.render/

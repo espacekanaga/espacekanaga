@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { useAuth } from './context/AuthContext';
 import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -14,6 +14,8 @@ import { UsersPage } from './pages/users/UsersPage';
 import { UserCreatePage } from './pages/users/UserCreatePage';
 import { UserDetailPage } from './pages/users/UserDetailPage';
 import { SettingsPage } from './pages/settings/SettingsPage';
+import { InvoicesListPage } from './pages/invoices/InvoicesListPage';
+import { InvoiceDetailPage } from './pages/invoices/InvoiceDetailPage';
 
 // Espace Atelier
 import { AtelierDashboardPage } from './pages/atelier/AtelierDashboardPage';
@@ -303,6 +305,10 @@ function AppRoutes() {
         
         {/* Paramètres */}
         <Route path="settings" element={<SettingsPage />} />
+
+        {/* Facturation */}
+        <Route path="invoices" element={<InvoicesListPage />} />
+        <Route path="invoices/:id" element={<InvoiceDetailPage />} />
       </Route>
       
       {/* Catch all */}
@@ -313,11 +319,9 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }
 

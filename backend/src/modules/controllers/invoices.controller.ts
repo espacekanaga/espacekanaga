@@ -15,13 +15,16 @@ export const invoicesRouter = Router();
 
 // List invoices
 invoicesRouter.get("/", requireAuth, async (req, res) => {
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: "Non authentifié" });
+
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
   const limit = typeof req.query.limit === "string" ? req.query.limit : "50";
   const offset = typeof req.query.offset === "string" ? req.query.offset : "0";
 
-  const where: Prisma.InvoiceWhereInput = {};
+  const baseWhere: Prisma.InvoiceWhereInput = {};
   if (search) {
-    where.OR = [
+    baseWhere.OR = [
       { numero: { contains: search, mode: "insensitive" } },
       {
         order: {
@@ -36,6 +39,22 @@ invoicesRouter.get("/", requireAuth, async (req, res) => {
       },
     ];
   }
+
+  const allowedTypes: OrderType[] = [];
+  if (user.role === "SUPER_ADMIN") {
+    allowedTypes.push(OrderType.pressing, OrderType.couture);
+  } else {
+    if (user.accessPressing) allowedTypes.push(OrderType.pressing);
+    if (user.accessAtelier) allowedTypes.push(OrderType.couture);
+  }
+
+  if (allowedTypes.length === 0) {
+    return res.json({ data: [], total: 0 });
+  }
+
+  const where: Prisma.InvoiceWhereInput = {
+    AND: [baseWhere, { order: { type: { in: allowedTypes } } }],
+  };
 
   const [invoices, total] = await Promise.all([
     prisma.invoice.findMany({
@@ -58,15 +77,12 @@ invoicesRouter.get("/", requireAuth, async (req, res) => {
     prisma.invoice.count({ where }),
   ]);
 
-  const user = req.user;
-  const visible = invoices.filter((inv) => canAccessByOrderType(inv.order.type, user));
-
   res.json({
-    data: visible.map((inv) => ({
+    data: invoices.map((inv) => ({
       ...inv,
       downloadUrl: `${req.protocol}://${req.get("host")}${inv.filePath ?? ""}`,
     })),
-    total: visible.length,
+    total,
   });
 });
 
@@ -96,4 +112,3 @@ invoicesRouter.get("/:id", requireAuth, async (req, res) => {
     downloadUrl: `${req.protocol}://${req.get("host")}${invoice.filePath ?? ""}`,
   });
 });
-

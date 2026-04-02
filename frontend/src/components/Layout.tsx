@@ -5,7 +5,7 @@ import { useToast } from '../hooks/useToast';
 import { ToastProvider, ToastContainer } from './ui/Toast';
 
 export function Layout() {
-  const { user, logout, isSuperAdmin, isAdmin } = useAuth();
+  const { user, logout, isSuperAdmin, isAdmin, hasPressingAccess, hasAtelierAccess } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -35,6 +35,7 @@ export function Layout() {
     { name: 'Dashboard', href: '/', icon: HomeIcon },
     { name: 'Clients', href: '/clients', icon: UsersIcon },
     { name: 'Commandes', href: '/orders', icon: ShoppingBagIcon },
+    ...((hasPressingAccess || hasAtelierAccess || isSuperAdmin) ? [{ name: 'Facturation', href: '/invoices', icon: ReceiptIcon }] : []),
     ...(isAdmin ? [
       { name: 'Espace Pressing', href: '/pressing', icon: SparklesIcon },
       { name: 'Espace Atelier', href: '/atelier', icon: ScissorsIcon },
@@ -255,6 +256,14 @@ function ShieldIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+    </svg>
+  );
+}
+
+function ReceiptIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l2 2 4-4M7 2h10a2 2 0 012 2v18l-3-2-3 2-3-2-3 2-3-2V4a2 2 0 012-2z" />
     </svg>
   );
 }
