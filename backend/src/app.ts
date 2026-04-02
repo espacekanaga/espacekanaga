@@ -15,7 +15,12 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: env.APP_BASE_URL,
+      origin: [
+        env.APP_BASE_URL,
+        "http://localhost:5173",
+        "https://espace-kanaga.netlify.app",
+        "https://espace-kanaga.onrender.com",
+      ],
       credentials: true,
     })
   );
