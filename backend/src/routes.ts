@@ -14,6 +14,16 @@ export function registerRoutes(app: Express) {
     res.json({ ok: true, timestamp: new Date().toISOString() });
   });
 
+  // Redirect API root to frontend
+  app.get("/api", (_req, res) => {
+    res.redirect("https://espace-kanaga.netlify.app");
+  });
+
+  // Redirect auth login GET to frontend login page
+  app.get("/api/auth/login", (_req, res) => {
+    res.redirect("https://espace-kanaga.netlify.app/login");
+  });
+
   app.use("/api/auth", authRouter);
   app.use("/api/clients", clientsRouter);
   app.use("/api/orders", ordersRouter);
