@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import bcrypt from "bcrypt";
 
 import { authRouter } from "./modules/controllers/auth.controller";
 import { clientsRouter } from "./modules/controllers/clients.controller";
@@ -8,11 +9,44 @@ import { usersRouter } from "./modules/controllers/users.controller";
 import { measurementsRouter } from "./modules/controllers/measurements.controller";
 import { invoicesRouter } from "./modules/controllers/invoices.controller";
 import { invoiceSettingsRouter } from "./modules/controllers/invoiceSettings.controller";
+import { prisma } from "./prisma/prismaClient";
 
 export function registerRoutes(app: Express) {
   // Health check
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, timestamp: new Date().toISOString() });
+  });
+
+  // Setup - create default super admin
+  app.post("/api/setup", async (_req, res) => {
+    try {
+      const existing = await prisma.user.findUnique({
+        where: { email: "espacekanaga@gmail.com" },
+      });
+      
+      if (existing) {
+        return res.json({ message: "Super admin already exists", userId: existing.id });
+      }
+      
+      const passwordHash = await bcrypt.hash("espacekanaga", 10);
+      const user = await prisma.user.create({
+        data: {
+          prenom: "Super",
+          nom: "Admin",
+          telephone: "+22370000001",
+          email: "espacekanaga@gmail.com",
+          passwordHash,
+          role: "SUPER_ADMIN",
+          isActive: true,
+          accessPressing: true,
+          accessAtelier: true,
+        },
+      });
+      
+      res.json({ message: "Super admin created", userId: user.id });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create super admin", details: String(error) });
+    }
   });
 
   // Redirect API root to frontend
