@@ -6,6 +6,8 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Form';
 import { LoadingSpinner } from '../../components/ui/Loading';
 import { useAuth } from '../../context/AuthContext';
+import { ImageUpload } from '../../components/ui/ImageUpload';
+
 import { usersApi } from '../../api/users';
 
 export function ProfilePage() {
@@ -13,6 +15,7 @@ export function ProfilePage() {
   const { refreshWithSuccess, refreshWithError } = useRefreshWithToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   
   // Form data for profile
   const [formData, setFormData] = useState({
@@ -97,12 +100,12 @@ export function ProfilePage() {
     e.preventDefault();
     
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      showError('Les mots de passe ne correspondent pas');
+      refreshWithError('Les mots de passe ne correspondent pas');
       return;
     }
 
     if (passwordData.newPassword.length < 6) {
-      showError('Le nouveau mot de passe doit contenir au moins 6 caractères');
+      refreshWithError('Le nouveau mot de passe doit contenir au moins 6 caractères');
       return;
     }
 
@@ -113,11 +116,11 @@ export function ProfilePage() {
         newPassword: passwordData.newPassword,
       });
 
-      showSuccess('Mot de passe changé avec succès');
+      refreshWithSuccess('Mot de passe changé avec succès');
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur lors du changement de mot de passe';
-      showError(message);
+      refreshWithError(message);
     } finally {
       setIsLoading(false);
     }
@@ -200,6 +203,24 @@ export function ProfilePage() {
 
             {isEditing ? (
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Photo de profil */}
+                <div className="flex justify-center pb-4 border-b border-slate-700/50">
+                  <ImageUpload
+                    currentImage={profileImage}
+                    onImageSelect={(file) => {
+                      // Convertir le fichier en base64 pour l'aperçu
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setProfileImage(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                    onImageRemove={() => setProfileImage(null)}
+                    placeholder={`${formData.prenom.charAt(0)}${formData.nom.charAt(0)}`}
+                    shape="circle"
+                    size="lg"
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Input
                     id="prenom"
@@ -253,9 +274,17 @@ export function ProfilePage() {
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="w-20 h-20 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-2xl font-medium">
-                    {user.prenom.charAt(0)}{user.nom.charAt(0)}
-                  </div>
+                  {profileImage ? (
+                    <img
+                      src={profileImage}
+                      alt={`${user.prenom} ${user.nom}`}
+                      className="w-20 h-20 rounded-full object-cover border-2 border-blue-500/30"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400 text-2xl font-medium">
+                      {user.prenom.charAt(0)}{user.nom.charAt(0)}
+                    </div>
+                  )}
                   <div>
                     <h4 className="text-xl font-semibold">{user.prenom} {user.nom}</h4>
                     <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${
