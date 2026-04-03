@@ -17,8 +17,8 @@ export function registerRoutes(app: Express) {
     res.json({ ok: true, timestamp: new Date().toISOString() });
   });
 
-  // Setup - create default super admin
-  app.post("/api/setup", async (_req, res) => {
+  // Setup - create default super admin (GET for easy browser access)
+  app.get("/api/setup", async (_req, res) => {
     try {
       const existing = await prisma.user.findUnique({
         where: { email: "espacekanaga@gmail.com" },
