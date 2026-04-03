@@ -145,13 +145,13 @@ export function ClientCreatePage() {
             {/* Service Selection */}
             <div className="bg-slate-800/50 p-4 rounded-lg">
               <label className="block text-sm font-medium mb-3">Service attribué *</label>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex gap-2">
                 {(['pressing', 'atelier', 'both'] as const).map((type) => (
                   <button
                     key={type}
                     type="button"
                     onClick={() => setFormData({ ...formData, clientType: type })}
-                    className={`px-4 py-2 rounded-lg border transition-all ${
+                    className={`flex-1 px-2 sm:px-4 py-2 rounded-lg border transition-all text-xs sm:text-sm ${
                       formData.clientType === type
                         ? 'bg-blue-500/20 border-blue-500 text-blue-300'
                         : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700'

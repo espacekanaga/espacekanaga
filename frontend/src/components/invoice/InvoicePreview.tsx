@@ -66,19 +66,22 @@ export function InvoicePreview({
         {stampEnabled && (
           <div className="flex justify-center py-4">
             <div
-              className="border-2 border-dashed rounded-lg px-6 py-4 text-center"
-              style={{ borderColor: stampColor || '#c41e3a' }}
+              className="border-2 border-solid px-8 py-3 text-center bg-white/50"
+              style={{ 
+                borderColor: stampColor || '#1e40af',
+                boxShadow: `inset 0 0 0 2px ${stampColor || '#1e40af'}`,
+              }}
             >
-              <p className="text-sm font-semibold" style={{ color: stampColor || '#c41e3a' }}>
+              <p className="text-base font-bold tracking-wider" style={{ color: stampColor || '#1e40af' }}>
                 {stampLine1 || 'CACHET'}
               </p>
               {stampLine2 && (
-                <p className="text-xs" style={{ color: stampColor || '#c41e3a' }}>
+                <p className="text-xs mt-1" style={{ color: stampColor || '#1e40af' }}>
                   {stampLine2}
                 </p>
               )}
               {stampLine3 && (
-                <p className="text-xs" style={{ color: stampColor || '#c41e3a' }}>
+                <p className="text-xs" style={{ color: stampColor || '#1e40af' }}>
                   {stampLine3}
                 </p>
               )}

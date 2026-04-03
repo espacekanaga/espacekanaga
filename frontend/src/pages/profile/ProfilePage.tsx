@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useToast } from '../../hooks/useToast';
+import { useRefreshWithToast } from '../../hooks/useRefreshWithToast';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -10,7 +10,7 @@ import { usersApi } from '../../api/users';
 
 export function ProfilePage() {
   const { user, updateUser } = useAuth();
-  const { showSuccess, showError } = useToast();
+  const { refreshWithSuccess, refreshWithError } = useRefreshWithToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   
@@ -69,11 +69,11 @@ export function ProfilePage() {
       // Update user in context
       updateUser(updatedUser);
 
-      showSuccess('Profil mis à jour avec succès');
+      refreshWithSuccess('Profil modifie avec succes');
       setIsEditing(false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erreur lors de la mise à jour du profil';
-      showError(message);
+      const message = err instanceof Error ? err.message : 'Erreur lors de la modification du profil';
+      refreshWithError(message);
     } finally {
       setIsLoading(false);
     }
