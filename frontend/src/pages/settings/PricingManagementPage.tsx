@@ -179,10 +179,10 @@ export function PricingManagementPage() {
               <div key={item.serviceName} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                 <span className="font-medium text-slate-900 dark:text-slate-100">{item.serviceName}</span>
                 <div className="flex items-center gap-3">
-                  <Input
+                  <input
                     type="number"
                     value={item.price}
-                    onChange={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       const newPrice = parseInt(e.target.value) || 0;
                       setPricing(pricing.map(p => 
                         p.serviceName === item.serviceName && p.category === item.category
@@ -191,7 +191,7 @@ export function PricingManagementPage() {
                       ));
                     }}
                     onBlur={() => handleUpdatePrice(item.serviceName, item.category, item.price)}
-                    className="w-28 text-right"
+                    className="w-28 px-2 py-1 text-right border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   />
                   <span className="text-slate-500">FCFA</span>
                   <Button
@@ -229,10 +229,10 @@ export function PricingManagementPage() {
               <div key={item.serviceName} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
                 <span className="font-medium text-slate-900 dark:text-slate-100">{item.serviceName}</span>
                 <div className="flex items-center gap-3">
-                  <Input
+                  <input
                     type="number"
                     value={item.price}
-                    onChange={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       const newPrice = parseInt(e.target.value) || 0;
                       setPricing(pricing.map(p => 
                         p.serviceName === item.serviceName && p.category === item.category
@@ -241,7 +241,7 @@ export function PricingManagementPage() {
                       ));
                     }}
                     onBlur={() => handleUpdatePrice(item.serviceName, item.category, item.price)}
-                    className="w-28 text-right"
+                    className="w-28 px-2 py-1 text-right border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                   />
                   <span className="text-slate-500">FCFA</span>
                   <Button
