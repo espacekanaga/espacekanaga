@@ -1,6 +1,10 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerRoutes = registerRoutes;
+const bcrypt_1 = __importDefault(require("bcrypt"));
 const auth_controller_1 = require("./modules/controllers/auth.controller");
 const clients_controller_1 = require("./modules/controllers/clients.controller");
 const orders_controller_1 = require("./modules/controllers/orders.controller");
@@ -9,10 +13,40 @@ const users_controller_1 = require("./modules/controllers/users.controller");
 const measurements_controller_1 = require("./modules/controllers/measurements.controller");
 const invoices_controller_1 = require("./modules/controllers/invoices.controller");
 const invoiceSettings_controller_1 = require("./modules/controllers/invoiceSettings.controller");
+const prismaClient_1 = require("./prisma/prismaClient");
 function registerRoutes(app) {
     // Health check
     app.get("/api/health", (_req, res) => {
         res.json({ ok: true, timestamp: new Date().toISOString() });
+    });
+    // Setup - create default super admin (GET for easy browser access)
+    app.get("/api/setup", async (_req, res) => {
+        try {
+            const existing = await prismaClient_1.prisma.user.findUnique({
+                where: { email: "espacekanaga@gmail.com" },
+            });
+            if (existing) {
+                return res.json({ message: "Super admin already exists", userId: existing.id });
+            }
+            const passwordHash = await bcrypt_1.default.hash("espacekanaga", 10);
+            const user = await prismaClient_1.prisma.user.create({
+                data: {
+                    prenom: "Super",
+                    nom: "Admin",
+                    telephone: "+22370000001",
+                    email: "espacekanaga@gmail.com",
+                    passwordHash,
+                    role: "SUPER_ADMIN",
+                    isActive: true,
+                    accessPressing: true,
+                    accessAtelier: true,
+                },
+            });
+            res.json({ message: "Super admin created", userId: user.id });
+        }
+        catch (error) {
+            res.status(500).json({ error: "Failed to create super admin", details: String(error) });
+        }
     });
     // Redirect API root to frontend
     app.get("/api", (_req, res) => {

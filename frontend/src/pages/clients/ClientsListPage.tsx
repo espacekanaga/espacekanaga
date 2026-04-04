@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useFetch } from '../../hooks/useFetch';
 import { useToast } from '../../hooks/useToast';
 import { clientsApi } from '../../api/clients';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -16,20 +15,47 @@ export function ClientsListPage() {
   const { showError } = useToast();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'pressing' | 'atelier'>('all');
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Refs for debounce
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showErrorRef = useRef(showError);
+  showErrorRef.current = showError;
 
-  const { data, isLoading, error } = useFetch(
-    () => clientsApi.getAll({
-      search,
-      type: typeFilter === 'all' ? undefined : typeFilter as 'pressing' | 'atelier' | 'both',
-      limit: 50
-    }),
-    { onError: (err) => showError(err.message) }
-  );
+  const fetchClients = useCallback(async (searchTerm: string, type: string) => {
+    setIsLoading(true);
+    try {
+      const response = await clientsApi.getAll({
+        search: searchTerm,
+        type: type === 'all' ? undefined : type as 'pressing' | 'atelier' | 'both',
+        limit: 50
+      });
+      setClients(response.data);
+    } catch (err) {
+      showErrorRef.current(err instanceof Error ? err.message : 'Erreur lors du chargement');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
-  if (isLoading) return <LoadingSpinner className="py-12" />;
-  if (error) return <EmptyState message="Erreur lors du chargement des clients" />;
+  useEffect(() => {
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
 
-  const clients = data?.data || [];
+    // Debounce search by 300ms
+    searchTimeoutRef.current = setTimeout(() => {
+      fetchClients(search, typeFilter);
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [search, typeFilter, fetchClients]);
 
   return (
     <div>
@@ -62,19 +88,23 @@ export function ClientsListPage() {
         </CardContent>
       </Card>
 
-      <div className="space-y-2">
-        {clients.length === 0 ? (
-          <EmptyState message="Aucun client trouvé" />
-        ) : (
-          clients.map((client) => (
-            <ClientListItem
-              key={client.id}
-              client={client}
-              onClick={() => navigate(`/clients/${client.id}`)}
-            />
-          ))
-        )}
-      </div>
+      {isLoading ? (
+        <LoadingSpinner className="py-12" />
+      ) : (
+        <div className="space-y-2">
+          {clients.length === 0 ? (
+            <EmptyState message="Aucun client trouvé" />
+          ) : (
+            clients.map((client) => (
+              <ClientListItem
+                key={client.id}
+                client={client}
+                onClick={() => navigate(`/clients/${client.id}`)}
+              />
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

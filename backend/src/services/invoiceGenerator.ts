@@ -62,7 +62,7 @@ export class InvoiceGenerator {
     companyName: 'ESPACE KANAGA',
     companyTagline: 'Pressing & Couture',
     companyEmail: 'espacekanaga@gmail.com',
-    stampColor: '#c41e3a',
+    stampColor: '#2563eb', // Blue color instead of red
   };
 
   static generateInvoicePDF(data: InvoiceData): Promise<string> {
@@ -294,26 +294,32 @@ export class InvoiceGenerator {
     options: { color: string; lines: string[]; date: Date }
   ): void {
     const color = options.color || this.DEFAULTS.stampColor;
-    const radius = 44;
-    const centerX = x + radius;
-    const centerY = y + radius;
+    const width = 140;
+    const height = 60;
+    const cornerRadius = 2;
 
     doc.save();
-    doc.lineWidth(2).strokeColor(color).circle(centerX, centerY, radius).stroke();
-    doc.lineWidth(1).strokeColor(color).circle(centerX, centerY, radius - 6).stroke();
+    
+    // Draw outer rectangle with border - more rectangular (less rounded)
+    doc.roundedRect(x, y, width, height, cornerRadius).strokeColor(color).lineWidth(2).stroke();
+    
+    // Draw inner rectangle with less rounding
+    doc.roundedRect(x + 3, y + 3, width - 6, height - 6, cornerRadius).strokeColor(color).lineWidth(1).stroke();
 
+    // Draw text lines
     const lines = options.lines.slice(0, 4);
     const fontSize = lines.length >= 4 ? 7 : 8;
     doc.font('Helvetica-Bold').fontSize(fontSize).fillColor(color);
     const lineGap = fontSize + 2;
-    let textY = centerY - ((lines.length - 1) * lineGap) / 2 - 4;
+    let textY = y + 10;
     lines.forEach((line) => {
-      doc.text(line, centerX - 42, textY, { width: 84, align: 'center' });
+      doc.text(line, x, textY, { width: width, align: 'center' });
       textY += lineGap;
     });
 
+    // Draw date at the bottom
     doc.font('Helvetica').fontSize(7).fillColor(color);
-    doc.text(options.date.toLocaleDateString('fr-FR'), centerX - 42, centerY + 22, { width: 84, align: 'center' });
+    doc.text(options.date.toLocaleDateString('fr-FR'), x, y + height - 14, { width: width, align: 'center' });
     doc.restore();
   }
 

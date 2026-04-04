@@ -13,7 +13,7 @@ class InvoiceGenerator {
         companyName: 'ESPACE KANAGA',
         companyTagline: 'Pressing & Couture',
         companyEmail: 'espacekanaga@gmail.com',
-        stampColor: '#c41e3a',
+        stampColor: '#2563eb', // Blue color instead of red
     };
     static generateInvoicePDF(data) {
         const doc = new pdfkit_1.default({ size: 'A4', margin: 50 });
@@ -206,23 +206,27 @@ class InvoiceGenerator {
     }
     static drawDigitalStamp(doc, x, y, options) {
         const color = options.color || this.DEFAULTS.stampColor;
-        const radius = 44;
-        const centerX = x + radius;
-        const centerY = y + radius;
+        const width = 120;
+        const height = 70;
+        const cornerRadius = 6;
         doc.save();
-        doc.lineWidth(2).strokeColor(color).circle(centerX, centerY, radius).stroke();
-        doc.lineWidth(1).strokeColor(color).circle(centerX, centerY, radius - 6).stroke();
+        // Draw outer rectangle with border
+        doc.roundedRect(x, y, width, height, cornerRadius).strokeColor(color).lineWidth(2).stroke();
+        // Draw inner rectangle
+        doc.roundedRect(x + 4, y + 4, width - 8, height - 8, cornerRadius - 2).strokeColor(color).lineWidth(1).stroke();
+        // Draw text lines
         const lines = options.lines.slice(0, 4);
         const fontSize = lines.length >= 4 ? 7 : 8;
         doc.font('Helvetica-Bold').fontSize(fontSize).fillColor(color);
-        const lineGap = fontSize + 2;
-        let textY = centerY - ((lines.length - 1) * lineGap) / 2 - 4;
+        const lineGap = fontSize + 3;
+        let textY = y + 12;
         lines.forEach((line) => {
-            doc.text(line, centerX - 42, textY, { width: 84, align: 'center' });
+            doc.text(line, x, textY, { width: width, align: 'center' });
             textY += lineGap;
         });
+        // Draw date at the bottom
         doc.font('Helvetica').fontSize(7).fillColor(color);
-        doc.text(options.date.toLocaleDateString('fr-FR'), centerX - 42, centerY + 22, { width: 84, align: 'center' });
+        doc.text(options.date.toLocaleDateString('fr-FR'), x, y + height - 16, { width: width, align: 'center' });
         doc.restore();
     }
     static drawDigitalSignature(doc, x, y, createdBy, numero) {

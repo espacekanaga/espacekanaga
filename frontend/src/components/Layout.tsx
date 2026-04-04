@@ -11,7 +11,8 @@ export function Layout() {
   const toast = useToast();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const desktopDropdownRef = useRef<HTMLDivElement>(null);
+  const mobileDropdownRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async () => {
     await logout();
@@ -23,7 +24,10 @@ export function Layout() {
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const isOutsideDesktop = desktopDropdownRef.current && !desktopDropdownRef.current.contains(target);
+      const isOutsideMobile = mobileDropdownRef.current && !mobileDropdownRef.current.contains(target);
+      if (isOutsideDesktop && isOutsideMobile) {
         setIsProfileDropdownOpen(false);
       }
     }
@@ -104,8 +108,8 @@ export function Layout() {
             {navigation.find(n => n.href === location.pathname)?.name || 'Dashboard'}
           </div>
           
-          {/* Profile Dropdown */}
-          <div className="relative" ref={dropdownRef}>
+          {/* Profile Dropdown Desktop */}
+          <div className="relative hidden lg:block" ref={desktopDropdownRef}>
             <button
               onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
               className="flex items-center gap-3 hover:bg-slate-100/70 px-3 py-2 rounded-lg transition-colors dark:hover:bg-slate-800/60"
@@ -177,7 +181,7 @@ export function Layout() {
           </div>
 
           {/* Profile Dropdown (mobile) */}
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative lg:hidden" ref={mobileDropdownRef}>
             <button
               onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
               className="flex items-center gap-2 hover:bg-slate-100/70 px-2 py-1.5 rounded-lg transition-colors dark:hover:bg-slate-800/60"

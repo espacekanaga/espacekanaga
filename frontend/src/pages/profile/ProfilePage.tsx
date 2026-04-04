@@ -13,6 +13,9 @@ import { usersApi } from '../../api/users';
 export function ProfilePage() {
   const { user, updateUser } = useAuth();
   const { refreshWithSuccess, refreshWithError } = useRefreshWithToast();
+
+  console.log('ProfilePage render - user:', user);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);

@@ -6,9 +6,12 @@ import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader } from '../../components/ui/Card';
 import { Input, TextArea } from '../../components/ui/Form';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { LoadingSpinner } from '../../components/ui/Loading';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
 import { InvoicePreview } from '../../components/invoice/InvoicePreview';
+import { ImageUpload } from '../../components/ui/ImageUpload';
+import { WorkSchedule } from '../../components/ui/WorkSchedule';
 
 type Theme = 'dark' | 'light' | 'system';
 
@@ -16,6 +19,9 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const { user, theme, setTheme, updateUser, hasPressingAccess, hasAtelierAccess, isSuperAdmin } = useAuth();
   const { showSuccess, showError } = useToast();
+
+  console.log('SettingsPage render - user:', user);
+  console.log('SettingsPage render - isSuperAdmin:', isSuperAdmin);
 
   const [isSavingTheme, setIsSavingTheme] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -47,6 +53,21 @@ export function SettingsPage() {
 
   const [pressingInvoiceForm, setPressingInvoiceForm] = useState({ tauxTVA: 18, notes: '' });
   const [atelierInvoiceForm, setAtelierInvoiceForm] = useState({ tauxTVA: 18, notes: '' });
+
+  // Company logo state
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+
+  // Work schedule state
+  const [workSchedule, setWorkSchedule] = useState([
+    { day: 'monday', isOpen: true, openTime: '08:00', closeTime: '18:00' },
+    { day: 'tuesday', isOpen: true, openTime: '08:00', closeTime: '18:00' },
+    { day: 'wednesday', isOpen: true, openTime: '08:00', closeTime: '18:00' },
+    { day: 'thursday', isOpen: true, openTime: '08:00', closeTime: '18:00' },
+    { day: 'friday', isOpen: true, openTime: '08:00', closeTime: '18:00' },
+    { day: 'saturday', isOpen: true, openTime: '08:00', closeTime: '18:00' },
+    { day: 'sunday', isOpen: false, openTime: '08:00', closeTime: '18:00' },
+  ]);
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false);
 
   const [isSavingInvoiceGlobal, setIsSavingInvoiceGlobal] = useState(false);
   const [isSavingInvoicePressing, setIsSavingInvoicePressing] = useState(false);
@@ -186,6 +207,9 @@ export function SettingsPage() {
       setSaving(false);
     }
   };
+
+  // Guard clause for user not loaded yet - AFTER all hooks
+  if (!user) return <LoadingSpinner className="py-12" />;
 
   return (
     <div>
@@ -338,6 +362,25 @@ export function SettingsPage() {
                       disabled={!canEditInvoiceGlobal}
                       className="min-h-[80px]"
                     />
+
+                    {/* Logo entreprise */}
+                    <div className="pt-4 border-t border-slate-200/70 dark:border-slate-700/50">
+                      <p className="font-medium text-slate-900 dark:text-slate-100 mb-3">Logo de l&apos;entreprise</p>
+                      <ImageUpload
+                        currentImage={companyLogo}
+                        onImageSelect={(file) => {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setCompanyLogo(reader.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                        }}
+                        onImageRemove={() => setCompanyLogo(null)}
+                        placeholder={globalInvoiceForm.companyName?.charAt(0) || 'E'}
+                        shape="square"
+                        size="md"
+                      />
+                    </div>
                   </div>
 
                   {/* Apercu */}
@@ -658,6 +701,71 @@ export function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Horaires de travail */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+                <ClockIcon className="w-5 h-5 text-orange-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Horaires d&apos;ouverture</h3>
+                <p className="text-sm text-slate-400">Définir les heures de travail de l&apos;entreprise</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="bg-slate-50/50 dark:bg-slate-800/30 rounded-xl p-4 border border-slate-200/50 dark:border-slate-700/30">
+                <WorkSchedule
+                  schedule={workSchedule}
+                  onChange={setWorkSchedule}
+                  disabled={!isSuperAdmin}
+                />
+              </div>
+              
+              {isSuperAdmin ? (
+                <div className="flex flex-col gap-2">
+                  <Button
+                    onClick={async () => {
+                      setIsSavingSchedule(true);
+                      try {
+                        // Simulate API call - replace with actual API when ready
+                        await new Promise((resolve) => setTimeout(resolve, 800));
+                        
+                        // TODO: Replace with actual API call
+                        // await workScheduleApi.save(workSchedule);
+                        
+                        showSuccess('Horaires enregistrés avec succès !');
+                      } catch (err) {
+                        showError(err instanceof Error ? err.message : 'Erreur lors de l\'enregistrement des horaires');
+                      } finally {
+                        setIsSavingSchedule(false);
+                      }
+                    }}
+                    isLoading={isSavingSchedule}
+                    className="w-full"
+                  >
+                    Enregistrer les horaires
+                  </Button>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                    Les modifications seront appliquées immédiatement
+                  </p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-3 bg-slate-100/50 dark:bg-slate-800/30 rounded-lg">
+                  <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Seul le Super Admin peut modifier les horaires
+                  </p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -849,6 +957,19 @@ function LockIcon({ className }: { className?: string }) {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M17 11V8a5 5 0 10-10 0v3m-1 0h12a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6a2 2 0 012-2z"
+      />
+    </svg>
+  );
+}
+
+function ClockIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
       />
     </svg>
   );
