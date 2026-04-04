@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usersApi } from '../../api/users';
 import { invoiceSettingsApi, type InvoiceSettingsBundle } from '../../api/invoiceSettings';
+import { workScheduleApi, type WorkSchedule as ApiWorkSchedule } from '../../api/workSchedule';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent, CardHeader } from '../../components/ui/Card';
 import { Input, TextArea } from '../../components/ui/Form';
@@ -11,7 +12,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/useToast';
 import { InvoicePreview } from '../../components/invoice/InvoicePreview';
 import { ImageUpload } from '../../components/ui/ImageUpload';
-import { WorkSchedule } from '../../components/ui/WorkSchedule';
+import { WorkSchedule, type DaySchedule } from '../../components/ui/WorkSchedule';
 
 type Theme = 'dark' | 'light' | 'system';
 
@@ -58,15 +59,16 @@ export function SettingsPage() {
   const [companyLogo, setCompanyLogo] = useState<string | null>(null);
 
   // Work schedule state
-  const [workSchedule, setWorkSchedule] = useState([
-    { day: 'monday', isOpen: true, openTime: '08:00', closeTime: '18:00' },
-    { day: 'tuesday', isOpen: true, openTime: '08:00', closeTime: '18:00' },
-    { day: 'wednesday', isOpen: true, openTime: '08:00', closeTime: '18:00' },
-    { day: 'thursday', isOpen: true, openTime: '08:00', closeTime: '18:00' },
-    { day: 'friday', isOpen: true, openTime: '08:00', closeTime: '18:00' },
-    { day: 'saturday', isOpen: true, openTime: '08:00', closeTime: '18:00' },
-    { day: 'sunday', isOpen: false, openTime: '08:00', closeTime: '18:00' },
+  const [workSchedule, setWorkSchedule] = useState<DaySchedule[]>([
+    { day: 'Lundi', enabled: true, openTime: '08:00', closeTime: '18:00' },
+    { day: 'Mardi', enabled: true, openTime: '08:00', closeTime: '18:00' },
+    { day: 'Mercredi', enabled: true, openTime: '08:00', closeTime: '18:00' },
+    { day: 'Jeudi', enabled: true, openTime: '08:00', closeTime: '18:00' },
+    { day: 'Vendredi', enabled: true, openTime: '08:00', closeTime: '18:00' },
+    { day: 'Samedi', enabled: true, openTime: '08:00', closeTime: '18:00' },
+    { day: 'Dimanche', enabled: false, openTime: '08:00', closeTime: '18:00' },
   ]);
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
 
   const [isSavingInvoiceGlobal, setIsSavingInvoiceGlobal] = useState(false);
@@ -118,6 +120,31 @@ export function SettingsPage() {
     };
 
     load();
+  }, [showError]);
+
+  // Load work schedule
+  useEffect(() => {
+    const loadSchedule = async () => {
+      setIsLoadingSchedule(true);
+      try {
+        const data = await workScheduleApi.get();
+        // Transform API format to component format
+        const formatted = data.map((item: ApiWorkSchedule) => ({
+          day: item.day,
+          enabled: item.enabled ?? false,
+          openTime: item.openTime,
+          closeTime: item.closeTime,
+        }));
+        setWorkSchedule(formatted);
+      } catch (err) {
+        console.error('Error loading work schedule:', err);
+        showError(err instanceof Error ? err.message : 'Erreur lors du chargement des horaires');
+      } finally {
+        setIsLoadingSchedule(false);
+      }
+    };
+
+    loadSchedule();
   }, [showError]);
 
   const handleThemeChange = async (newTheme: Theme) => {
@@ -716,13 +743,19 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="bg-slate-50/50 dark:bg-slate-800/30 rounded-xl p-4 border border-slate-200/50 dark:border-slate-700/30">
-                <WorkSchedule
-                  schedule={workSchedule}
-                  onChange={setWorkSchedule}
-                  disabled={!isSuperAdmin}
-                />
-              </div>
+              {isLoadingSchedule ? (
+                <div className="flex items-center justify-center py-8">
+                  <LoadingSpinner />
+                </div>
+              ) : (
+                <div className="bg-slate-50/50 dark:bg-slate-800/30 rounded-xl p-4 border border-slate-200/50 dark:border-slate-700/30">
+                  <WorkSchedule
+                    schedule={workSchedule}
+                    onChange={setWorkSchedule}
+                    disabled={!isSuperAdmin}
+                  />
+                </div>
+              )}
               
               {isSuperAdmin ? (
                 <div className="flex flex-col gap-2">
@@ -730,12 +763,14 @@ export function SettingsPage() {
                     onClick={async () => {
                       setIsSavingSchedule(true);
                       try {
-                        // Simulate API call - replace with actual API when ready
-                        await new Promise((resolve) => setTimeout(resolve, 800));
-                        
-                        // TODO: Replace with actual API call
-                        // await workScheduleApi.save(workSchedule);
-                        
+                        // Transform component format to API format
+                        const apiFormat = workSchedule.map((item) => ({
+                          day: item.day,
+                          enabled: item.enabled,
+                          openTime: item.openTime,
+                          closeTime: item.closeTime,
+                        }));
+                        await workScheduleApi.update(apiFormat);
                         showSuccess('Horaires enregistrés avec succès !');
                       } catch (err) {
                         showError(err instanceof Error ? err.message : 'Erreur lors de l\'enregistrement des horaires');
@@ -786,7 +821,7 @@ export function SettingsPage() {
               </div>
               <div className="flex justify-between py-2 border-b border-slate-200/70 dark:border-slate-700/50">
                 <span className="text-slate-400">Nom</span>
-                <span className="text-slate-900 dark:text-slate-200">Espace Espace Kanaga</span>
+                <span className="text-slate-900 dark:text-slate-200">Espace Kanaga</span>
               </div>
               <div className="flex justify-between py-2">
                 <span className="text-slate-400">Développé par</span>

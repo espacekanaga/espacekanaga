@@ -17,7 +17,15 @@ const createUserSchema = zod_1.z.object({
     accessAtelier: zod_1.z.boolean().default(false),
     password: zod_1.z.string().min(6),
 });
-const updateUserSchema = createUserSchema.partial().omit({ password: true });
+const updateUserSchema = createUserSchema.partial().omit({ password: true }).extend({
+    isActive: zod_1.z.boolean().optional(),
+    prenom: zod_1.z.string().min(2).optional(),
+    nom: zod_1.z.string().min(2).optional(),
+    telephone: zod_1.z.string().min(8).optional(),
+    adresse: zod_1.z.string().optional(),
+    accessPressing: zod_1.z.boolean().optional(),
+    accessAtelier: zod_1.z.boolean().optional(),
+});
 // Schema for updating own profile (no role/permissions change allowed)
 const updateProfileSchema = zod_1.z.object({
     prenom: zod_1.z.string().min(2).optional(),

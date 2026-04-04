@@ -13,6 +13,7 @@ const users_controller_1 = require("./modules/controllers/users.controller");
 const measurements_controller_1 = require("./modules/controllers/measurements.controller");
 const invoices_controller_1 = require("./modules/controllers/invoices.controller");
 const invoiceSettings_controller_1 = require("./modules/controllers/invoiceSettings.controller");
+const workSchedule_controller_1 = require("./modules/controllers/workSchedule.controller");
 const prismaClient_1 = require("./prisma/prismaClient");
 function registerRoutes(app) {
     // Health check
@@ -58,6 +59,7 @@ function registerRoutes(app) {
     });
     app.use("/api/auth", auth_controller_1.authRouter);
     app.use("/api/settings/invoice", invoiceSettings_controller_1.invoiceSettingsRouter);
+    app.use("/api/settings/work-schedule", workSchedule_controller_1.workScheduleRouter);
     app.use("/api/clients", clients_controller_1.clientsRouter);
     app.use("/api/orders", orders_controller_1.ordersRouter);
     app.use("/api/invoices", invoices_controller_1.invoicesRouter);

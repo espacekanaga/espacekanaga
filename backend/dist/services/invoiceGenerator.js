@@ -206,27 +206,27 @@ class InvoiceGenerator {
     }
     static drawDigitalStamp(doc, x, y, options) {
         const color = options.color || this.DEFAULTS.stampColor;
-        const width = 120;
-        const height = 70;
-        const cornerRadius = 6;
+        const width = 140;
+        const height = 60;
+        const cornerRadius = 2;
         doc.save();
-        // Draw outer rectangle with border
+        // Draw outer rectangle with border - more rectangular (less rounded)
         doc.roundedRect(x, y, width, height, cornerRadius).strokeColor(color).lineWidth(2).stroke();
-        // Draw inner rectangle
-        doc.roundedRect(x + 4, y + 4, width - 8, height - 8, cornerRadius - 2).strokeColor(color).lineWidth(1).stroke();
+        // Draw inner rectangle with less rounding
+        doc.roundedRect(x + 3, y + 3, width - 6, height - 6, cornerRadius).strokeColor(color).lineWidth(1).stroke();
         // Draw text lines
         const lines = options.lines.slice(0, 4);
         const fontSize = lines.length >= 4 ? 7 : 8;
         doc.font('Helvetica-Bold').fontSize(fontSize).fillColor(color);
-        const lineGap = fontSize + 3;
-        let textY = y + 12;
+        const lineGap = fontSize + 2;
+        let textY = y + 10;
         lines.forEach((line) => {
             doc.text(line, x, textY, { width: width, align: 'center' });
             textY += lineGap;
         });
         // Draw date at the bottom
         doc.font('Helvetica').fontSize(7).fillColor(color);
-        doc.text(options.date.toLocaleDateString('fr-FR'), x, y + height - 16, { width: width, align: 'center' });
+        doc.text(options.date.toLocaleDateString('fr-FR'), x, y + height - 14, { width: width, align: 'center' });
         doc.restore();
     }
     static drawDigitalSignature(doc, x, y, createdBy, numero) {

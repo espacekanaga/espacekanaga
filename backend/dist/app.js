@@ -30,7 +30,7 @@ function createApp() {
     app.use((0, morgan_1.default)("dev"));
     app.use((0, express_rate_limit_1.default)({
         windowMs: 15 * 60 * 1000,
-        limit: 200,
+        limit: 1000,
         standardHeaders: true,
         legacyHeaders: false,
     }));

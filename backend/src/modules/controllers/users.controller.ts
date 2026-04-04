@@ -16,7 +16,15 @@ const createUserSchema = z.object({
   password: z.string().min(6),
 });
 
-const updateUserSchema = createUserSchema.partial().omit({ password: true });
+const updateUserSchema = createUserSchema.partial().omit({ password: true }).extend({
+  isActive: z.boolean().optional(),
+  prenom: z.string().min(2).optional(),
+  nom: z.string().min(2).optional(),
+  telephone: z.string().min(8).optional(),
+  adresse: z.string().optional(),
+  accessPressing: z.boolean().optional(),
+  accessAtelier: z.boolean().optional(),
+});
 
 // Schema for updating own profile (no role/permissions change allowed)
 const updateProfileSchema = z.object({

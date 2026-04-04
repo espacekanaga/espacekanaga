@@ -402,3 +402,16 @@ model StockTissu {
   @@index([type])
   @@index([isActive])
 }
+
+// Horaires de travail
+model WorkSchedule {
+  id          String   @id @default(uuid())
+  dayOfWeek   Int      @unique // 0 = Dimanche, 1 = Lundi, ..., 6 = Samedi
+  isOpen      Boolean  @default(false)
+  openTime    String?  // Format HH:mm
+  closeTime   String?  // Format HH:mm
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([dayOfWeek])
+}

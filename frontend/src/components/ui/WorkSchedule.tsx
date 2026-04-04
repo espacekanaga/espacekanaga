@@ -2,7 +2,8 @@ import { useState } from 'react';
 
 type DaySchedule = {
   day: string;
-  isOpen: boolean;
+  isOpen?: boolean;
+  enabled: boolean;
   openTime: string;
   closeTime: string;
 };
@@ -18,8 +19,8 @@ const DAYS = [
 ];
 
 const DEFAULT_SCHEDULE: DaySchedule[] = DAYS.map((day) => ({
-  day: day.key,
-  isOpen: day.key !== 'sunday',
+  day: day.label,
+  enabled: day.key !== 'sunday',
   openTime: '08:00',
   closeTime: '18:00',
 }));
@@ -35,7 +36,12 @@ export function WorkSchedule({ schedule = DEFAULT_SCHEDULE, onChange, disabled =
 
   const handleToggleDay = (index: number) => {
     const newSchedule = [...localSchedule];
-    newSchedule[index].isOpen = !newSchedule[index].isOpen;
+    const current = newSchedule[index];
+    const isCurrentlyOpen = current.enabled ?? current.isOpen ?? false;
+    current.enabled = !isCurrentlyOpen;
+    if (current.isOpen !== undefined) {
+      current.isOpen = !isCurrentlyOpen;
+    }
     setLocalSchedule(newSchedule);
     onChange?.(newSchedule);
   };
@@ -53,7 +59,7 @@ export function WorkSchedule({ schedule = DEFAULT_SCHEDULE, onChange, disabled =
         <div
           key={day.key}
           className={`flex flex-col sm:flex-row sm:items-center gap-2 p-3 rounded-lg border transition-all ${
-            localSchedule[index]?.isOpen
+            (localSchedule[index]?.enabled ?? localSchedule[index]?.isOpen)
               ? 'border-slate-200/70 dark:border-slate-700/50 bg-white/40 dark:bg-slate-900/20'
               : 'border-slate-200/30 dark:border-slate-700/30 bg-slate-100/30 dark:bg-slate-800/20 opacity-60'
           }`}
@@ -62,7 +68,7 @@ export function WorkSchedule({ schedule = DEFAULT_SCHEDULE, onChange, disabled =
           <label className="flex items-center gap-2 min-w-[80px] sm:min-w-[100px]">
             <input
               type="checkbox"
-              checked={localSchedule[index]?.isOpen}
+              checked={localSchedule[index]?.enabled ?? localSchedule[index]?.isOpen}
               onChange={() => handleToggleDay(index)}
               disabled={disabled}
               className="h-4 w-4 rounded border-slate-300 dark:border-slate-600"
@@ -73,7 +79,7 @@ export function WorkSchedule({ schedule = DEFAULT_SCHEDULE, onChange, disabled =
           </label>
 
           {/* Time inputs - stacked on mobile, row on desktop */}
-          {localSchedule[index]?.isOpen ? (
+          {(localSchedule[index]?.enabled ?? localSchedule[index]?.isOpen) ? (
             <div className="flex items-center gap-2 flex-1 ml-6 sm:ml-0">
               <div className="flex items-center gap-1 flex-1">
                 <span className="text-xs text-slate-500 hidden sm:inline">De</span>
