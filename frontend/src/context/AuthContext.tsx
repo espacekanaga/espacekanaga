@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { authApi, tokenStorage } from '../api/auth';
-import type { User, LoginCredentials, UserRole } from '../types/auth';
+import type { User, LoginCredentials, RegisterClientPayload, UserRole } from '../types/auth';
 
 type Theme = 'dark' | 'light' | 'system';
 
@@ -10,7 +10,8 @@ interface AuthContextType {
   isLoading: boolean;
   theme: Theme;
   setTheme: (theme: Theme) => void;
-  login: (credentials: LoginCredentials) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<User>;
+  register: (payload: RegisterClientPayload) => Promise<User>;
   logout: () => Promise<void>;
   updateUser: (user: User) => void;
   hasRole: (roles: UserRole[]) => boolean;
@@ -20,6 +21,7 @@ interface AuthContextType {
   isSuperAdmin: boolean;
   isAdmin: boolean;
   isEmployee: boolean;
+  isClient: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -73,10 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         nom: payload.nom || '',
         telephone: payload.telephone || '',
         email: payload.email || '',
+        adresse: payload.adresse || '',
         role: payload.role,
-        isActive: true,
+        isActive: payload.isActive ?? true,
         accessPressing: payload.accessPressing || false,
         accessAtelier: payload.accessAtelier || false,
+        clientType: payload.clientType,
+        theme: payload.theme || 'dark',
         createdAt: '',
         updatedAt: '',
       };
@@ -148,6 +153,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (credentials: LoginCredentials) => {
     const response = await authApi.login(credentials);
     setUser(response.user);
+    return response.user;
+  }, []);
+
+  const register = useCallback(async (payload: RegisterClientPayload) => {
+    const response = await authApi.register(payload);
+    setUser(response.user);
+    return response.user;
   }, []);
 
   const logout = useCallback(async () => {
@@ -170,6 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const isEmployee = user?.role === 'EMPLOYEE';
+  const isClient = user?.role === 'CLIENT';
 
   const hasPressingAccess = user?.role === 'SUPER_ADMIN' || user?.accessPressing === true;
   const hasAtelierAccess = user?.role === 'SUPER_ADMIN' || user?.accessAtelier === true;
@@ -182,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     theme,
     setTheme,
     login,
+    register,
     logout,
     updateUser,
     hasRole,
@@ -191,6 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isSuperAdmin,
     isAdmin,
     isEmployee,
+    isClient,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

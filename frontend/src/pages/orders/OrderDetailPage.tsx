@@ -205,6 +205,32 @@ export function OrderDetailPage() {
                 {order.couture.deadline && (
                   <InfoRow label="Deadline" value={new Date(order.couture.deadline).toLocaleDateString('fr-FR')} />
                 )}
+                {order.couture.measurement && (
+                  <div className="mt-4 rounded-2xl border border-slate-200/70 bg-slate-50 p-4 dark:border-slate-700/60 dark:bg-slate-900/40">
+                    <p className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Mensurations client</p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {Object.entries(order.couture.measurement.data).map(([key, value]) => (
+                        <div key={key} className="rounded-xl border border-slate-200/70 bg-white px-3 py-2 dark:border-slate-700/60 dark:bg-slate-950/40">
+                          <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{key.replace(/_/g, ' ')}</p>
+                          <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{String(value)}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {order.couture.measurement.notes ? (
+                      <p className="mt-3 whitespace-pre-line text-sm text-slate-600 dark:text-slate-300">{order.couture.measurement.notes}</p>
+                    ) : null}
+                  </div>
+                )}
+                <div className="mt-4">
+                  <p className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">Modele couture</p>
+                  <div className="overflow-hidden rounded-2xl border border-dashed border-slate-300/70 bg-slate-50 p-4 text-center dark:border-slate-700/60 dark:bg-slate-900/40">
+                    {order.couture.modelImage ? (
+                      <img src={order.couture.modelImage} alt="Modele couture" className="mx-auto max-h-72 rounded-2xl object-cover" />
+                    ) : (
+                      <p className="text-sm text-slate-500 dark:text-slate-400">Aucune image de modele jointe.</p>
+                    )}
+                  </div>
+                </div>
               </>
             )}
           </CardContent>
@@ -218,7 +244,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between py-2.5 border-b border-slate-200/70 dark:border-slate-700/50 last:border-0">
       <span className="text-slate-400">{label}</span>
-      <span className="font-medium text-slate-900 dark:text-slate-100">{value}</span>
+      <span className="whitespace-pre-line text-right font-medium text-slate-900 dark:text-slate-100">{value}</span>
     </div>
   );
 }

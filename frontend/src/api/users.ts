@@ -50,7 +50,7 @@ export const usersApi = {
   },
 
   create: async (user: CreateUserRequest): Promise<User> => {
-    const { data } = await api.post<User>('/auth/register', user);
+    const { data } = await api.post<User>('/users', user);
     return data;
   },
 

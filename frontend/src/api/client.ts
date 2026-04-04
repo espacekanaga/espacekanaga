@@ -1,5 +1,7 @@
 import axios, { AxiosError, AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
 import type { RefreshRequest, RefreshResponse } from '../types/auth';
+import type { Order, CreateOrderRequest } from '../types/order';
+import type { Client, UpdateClientRequest } from '../types/client';
 
 // Ensure API_URL always ends with /api
 const rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
@@ -37,6 +39,15 @@ export const tokenStorage = {
   },
 };
 
+export interface ClientMe extends Client {
+  userId: string;
+  role: 'CLIENT';
+  isActive: boolean;
+  accessPressing: boolean;
+  accessAtelier: boolean;
+  theme?: 'dark' | 'light' | 'system';
+}
+
 // Flag to prevent multiple refresh requests
 let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
@@ -52,7 +63,7 @@ function onTokenRefreshed(newToken: string) {
 
 function isAuthEndpoint(url: string | undefined) {
   const u = url ?? '';
-  return u.includes('/auth/login') || u.includes('/auth/refresh') || u.includes('/auth/logout');
+  return u.includes('/auth/login') || u.includes('/auth/refresh') || u.includes('/auth/logout') || u.includes('/auth/register');
 }
 
 // Request interceptor - add auth header
@@ -140,3 +151,34 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const clientApi = {
+  getMe: async () => {
+    const { data } = await api.get<ClientMe>('/clients/me');
+    return data;
+  },
+
+  getMyOrders: async (params?: { status?: string; limit?: number }) => {
+    const { data } = await api.get<Order[]>('/clients/me/orders', { params });
+    return data;
+  },
+
+  createOrder: async (data: Omit<CreateOrderRequest, 'clientId'>) => {
+    const response = await api.post<Order>('/clients/me/orders', data);
+    return response.data;
+  },
+
+  getOrder: async (id: string) => {
+    const { data } = await api.get<Order>(`/clients/me/orders/${id}`);
+    return data;
+  },
+
+  updateProfile: async (data: UpdateClientRequest) => {
+    const response = await api.patch<ClientMe>('/clients/me', data);
+    return response.data;
+  },
+
+  updatePassword: async (data: { currentPassword: string; newPassword: string }) => {
+    await api.post('/clients/me/password', data);
+  },
+};

@@ -39,7 +39,7 @@ export function MeasurementFieldsPage() {
   return (
     <div>
       <PageHeader title="Champs de Mensuration" description="Configuration des mensurations">
-        <Button variant="secondary" onClick={() => navigate('/')}>Retour</Button>
+          <Button variant="secondary" onClick={() => navigate('/dashboard')}>Retour</Button>
         <Button onClick={() => navigate('/measurement-fields/new')}>Nouveau champ</Button>
       </PageHeader>
 

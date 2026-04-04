@@ -10,6 +10,7 @@ enum UserRole {
   SUPER_ADMIN
   ADMIN
   EMPLOYEE
+  CLIENT
 }
 
 enum OrderType {
@@ -49,6 +50,7 @@ model User {
   adresse      String?
   passwordHash String
   role         UserRole @default(EMPLOYEE)
+  clientType   ClientType?
   isActive     Boolean  @default(true)
   
   // Permissions d'accès aux espaces de travail
@@ -414,4 +416,17 @@ model WorkSchedule {
   updatedAt   DateTime @updatedAt
 
   @@index([dayOfWeek])
+}
+
+// Tarifs des services
+model Pricing {
+  id          String   @id @default(uuid())
+  serviceName String
+  price       Int      // Prix en FCFA
+  category    String   // "pressing" ou "atelier"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([serviceName, category])
+  @@index([category])
 }

@@ -23,6 +23,10 @@ const roleOptions = [
   { value: 'EMPLOYEE', label: 'Employé' },
 ];
 
+function normalizeStaffRole(role?: string): 'SUPER_ADMIN' | 'ADMIN' | 'EMPLOYEE' {
+  return role === 'SUPER_ADMIN' || role === 'ADMIN' || role === 'EMPLOYEE' ? role : 'EMPLOYEE';
+}
+
 interface UserFormValues extends Record<string, unknown> {
   prenom: string;
   nom: string;
@@ -58,7 +62,7 @@ export function UserDetailPage() {
       telephone: user?.telephone || '',
       email: user?.email || '',
       adresse: user?.adresse || '',
-      role: user?.role || 'EMPLOYEE',
+      role: normalizeStaffRole(user?.role),
       isActive: user?.isActive ?? true,
       accessPressing: user?.accessPressing ?? false,
       accessAtelier: user?.accessAtelier ?? false,
@@ -94,7 +98,7 @@ export function UserDetailPage() {
         telephone: user.telephone || '',
         email: user.email || '',
         adresse: user.adresse || '',
-        role: user.role || 'EMPLOYEE',
+        role: normalizeStaffRole(user.role),
         isActive: user.isActive ?? true,
         accessPressing: user.accessPressing ?? false,
         accessAtelier: user.accessAtelier ?? false,
@@ -441,18 +445,23 @@ export function UserDetailPage() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="max-w-md w-full mx-4">
+          <Card className="max-w-md w-full mx-4 shadow-2xl">
             <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-2">Confirmer la suppression</h3>
-              <p className="text-gray-600 mb-4">
-                Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>{user.prenom} {user.nom}</strong> ?
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <TrashIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Confirmer la suppression</h3>
+              </div>
+              <p className="text-slate-600 dark:text-slate-400 mb-6">
+                Êtes-vous sûr de vouloir supprimer l'utilisateur <strong className="text-slate-900 dark:text-slate-100">{user.prenom} {user.nom}</strong> ?
                 Cette action est irréversible.
               </p>
-              <div className="flex gap-2">
-                <Button variant="danger" onClick={handleDelete}>
+              <div className="flex gap-3">
+                <Button variant="danger" onClick={handleDelete} className="flex-1">
                   Supprimer
                 </Button>
-                <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
+                <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)} className="flex-1">
                   Annuler
                 </Button>
               </div>
@@ -475,6 +484,14 @@ function InfoRowReadOnly({ label, value }: { label: string; value: React.ReactNo
 }
 
 // Icons
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  );
+}
+
 function ShoppingBagIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">

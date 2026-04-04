@@ -10,6 +10,7 @@ declare global {
         nom: string;
         telephone: string;
         email?: string;
+        clientType?: "pressing" | "atelier" | "both";
         accessPressing: boolean;
         accessAtelier: boolean;
       };

@@ -1,9 +1,11 @@
 import { env } from "./env";
 import { createApp } from "./app";
+import { ensureClientAuthSchema } from "./prisma/ensureClientAuthSchema";
 import { ensureUploadDir } from "./shared/ensureUploadDir";
 
 async function main() {
   ensureUploadDir();
+  await ensureClientAuthSchema();
 
   const app = createApp();
   app.listen(env.PORT, () => {

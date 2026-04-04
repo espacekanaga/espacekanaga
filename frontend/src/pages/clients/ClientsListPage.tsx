@@ -63,7 +63,7 @@ export function ClientsListPage() {
         title="Clients"
         description="Liste de tous les clients"
       >
-        <Button variant="secondary" onClick={() => navigate('/')}>Retour</Button>
+          <Button variant="secondary" onClick={() => navigate('/dashboard')}>Retour</Button>
         <Button onClick={() => navigate('/clients/new')}>Nouveau client</Button>
       </PageHeader>
 

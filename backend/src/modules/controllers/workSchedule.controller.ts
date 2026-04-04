@@ -34,26 +34,28 @@ async function initializeDefaultSchedule() {
   }
 }
 
+async function getFormattedWorkSchedules() {
+  await initializeDefaultSchedule();
+
+  const schedules = await prisma.workSchedule.findMany({
+    orderBy: { dayOfWeek: "asc" }
+  });
+
+  return schedules.map((s) => ({
+    day: DAY_NAMES[s.dayOfWeek],
+    enabled: s.isOpen,
+    openTime: s.openTime || "08:00",
+    closeTime: s.closeTime || "18:00",
+    dayOfWeek: s.dayOfWeek
+  }));
+}
+
 export const workScheduleRouter = Router();
 
 // GET /api/settings/work-schedule - Get all work schedules
 workScheduleRouter.get("/", requireAuth, async (_req, res) => {
   try {
-    await initializeDefaultSchedule();
-    
-    const schedules = await prisma.workSchedule.findMany({
-      orderBy: { dayOfWeek: "asc" }
-    });
-    
-    // Transform to frontend format
-    const formatted = schedules.map(s => ({
-      day: DAY_NAMES[s.dayOfWeek],
-      enabled: s.isOpen,
-      openTime: s.openTime || "08:00",
-      closeTime: s.closeTime || "18:00",
-      dayOfWeek: s.dayOfWeek
-    }));
-    
+    const formatted = await getFormattedWorkSchedules();
     res.json(formatted);
   } catch (error) {
     console.error("Error fetching work schedules:", error);
@@ -111,22 +113,20 @@ workScheduleRouter.put("/", requireSuperAdmin, async (req, res) => {
       });
     }
     
-    // Return updated schedules
-    const schedules = await prisma.workSchedule.findMany({
-      orderBy: { dayOfWeek: "asc" }
-    });
-    
-    const formatted = schedules.map(s => ({
-      day: DAY_NAMES[s.dayOfWeek],
-      enabled: s.isOpen,
-      openTime: s.openTime || "08:00",
-      closeTime: s.closeTime || "18:00",
-      dayOfWeek: s.dayOfWeek
-    }));
-    
+    const formatted = await getFormattedWorkSchedules();
     res.json(formatted);
   } catch (error) {
     console.error("Error updating work schedules:", error);
     res.status(500).json({ error: "Erreur lors de la mise à jour des horaires" });
   }
 });
+
+export async function getPublicWorkSchedule(_req: unknown, res: any) {
+  try {
+    const formatted = await getFormattedWorkSchedules();
+    res.json(formatted);
+  } catch (error) {
+    console.error("Error fetching public work schedules:", error);
+    res.status(500).json({ error: "Erreur lors de la recuperation des horaires publics" });
+  }
+}

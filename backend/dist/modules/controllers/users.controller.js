@@ -19,14 +19,7 @@ const createUserSchema = zod_1.z.object({
 });
 const updateUserSchema = createUserSchema.partial().omit({ password: true }).extend({
     isActive: zod_1.z.boolean().optional(),
-    prenom: zod_1.z.string().min(2).optional(),
-    nom: zod_1.z.string().min(2).optional(),
-    telephone: zod_1.z.string().min(8).optional(),
-    adresse: zod_1.z.string().optional(),
-    accessPressing: zod_1.z.boolean().optional(),
-    accessAtelier: zod_1.z.boolean().optional(),
 });
-// Schema for updating own profile (no role/permissions change allowed)
 const updateProfileSchema = zod_1.z.object({
     prenom: zod_1.z.string().min(2).optional(),
     nom: zod_1.z.string().min(2).optional(),
@@ -35,284 +28,211 @@ const updateProfileSchema = zod_1.z.object({
     adresse: zod_1.z.string().optional(),
     theme: zod_1.z.enum(["dark", "light", "system"]).optional(),
 });
-// Schema for password change
 const changePasswordSchema = zod_1.z.object({
     currentPassword: zod_1.z.string().min(1),
     newPassword: zod_1.z.string().min(6),
 });
+const userSelect = {
+    id: true,
+    prenom: true,
+    nom: true,
+    telephone: true,
+    email: true,
+    adresse: true,
+    role: true,
+    isActive: true,
+    accessPressing: true,
+    accessAtelier: true,
+    theme: true,
+    createdAt: true,
+    updatedAt: true,
+};
+function forbidClientRole(req, res) {
+    if (req.user?.role === "CLIENT") {
+        res.status(403).json({ error: "Acces refuse" });
+        return true;
+    }
+    return false;
+}
 exports.usersRouter = (0, express_1.Router)();
-// Get current user profile - requires authentication (MUST be before /:id route)
 exports.usersRouter.get("/me", auth_middleware_1.requireAuth, async (req, res) => {
     try {
-        const currentUser = req.user;
-        if (!currentUser) {
-            return res.status(401).json({ error: "Non authentifié" });
+        if (!req.user) {
+            return res.status(401).json({ error: "Non authentifie" });
         }
         const user = await prismaClient_1.prisma.user.findUnique({
-            where: { id: currentUser.id },
-            select: {
-                id: true,
-                prenom: true,
-                nom: true,
-                telephone: true,
-                email: true,
-                adresse: true,
-                role: true,
-                isActive: true,
-                accessPressing: true,
-                accessAtelier: true,
-                theme: true,
-                createdAt: true,
-                updatedAt: true,
-            },
+            where: { id: req.user.id },
+            select: userSelect,
         });
         if (!user) {
-            return res.status(404).json({ error: "Utilisateur non trouvé" });
+            return res.status(404).json({ error: "Utilisateur non trouve" });
         }
         res.json(user);
     }
     catch (error) {
         console.error("Error fetching current user:", error);
-        res.status(500).json({ error: "Erreur lors de la récupération du profil" });
+        res.status(500).json({ error: "Erreur lors de la recuperation du profil" });
     }
 });
-// Update current user profile - requires authentication (MUST be before /:id route)
 exports.usersRouter.patch("/me", auth_middleware_1.requireAuth, async (req, res) => {
     try {
-        const currentUser = req.user;
-        if (!currentUser) {
-            return res.status(401).json({ error: "Non authentifié" });
+        if (!req.user) {
+            return res.status(401).json({ error: "Non authentifie" });
         }
         const parsed = updateProfileSchema.safeParse(req.body);
         if (!parsed.success) {
             return res.status(400).json({ error: parsed.error.flatten() });
         }
-        const { telephone, email } = parsed.data;
         let telephoneToSet;
-        if (telephone !== undefined) {
-            const normalized = (0, normalize_1.normalizeTelephone)(telephone);
+        if (parsed.data.telephone !== undefined) {
+            const normalized = (0, normalize_1.normalizeTelephone)(parsed.data.telephone);
             if (!normalized)
-                return res.status(400).json({ error: "Numéro de téléphone invalide" });
+                return res.status(400).json({ error: "Numero de telephone invalide" });
             telephoneToSet = normalized;
         }
-        const emailToSet = email !== undefined ? (0, normalize_1.normalizeEmail)(email) : undefined;
-        // Check if phone already exists (if changing phone)
-        if (telephoneToSet && telephoneToSet !== currentUser.telephone) {
-            const existingPhone = await prismaClient_1.prisma.user.findUnique({ where: { telephone: telephoneToSet } });
+        const emailToSet = parsed.data.email !== undefined ? (0, normalize_1.normalizeEmail)(parsed.data.email) : undefined;
+        if (telephoneToSet && telephoneToSet !== req.user.telephone) {
+            const existingPhone = await prismaClient_1.prisma.user.findUnique({ where: { telephone: telephoneToSet }, select: { id: true } });
             if (existingPhone) {
-                return res.status(409).json({ error: "Numéro de téléphone déjà utilisé" });
+                return res.status(409).json({ error: "Numero de telephone deja utilise" });
             }
         }
-        // Check if email already exists (if changing email)
-        if (email !== undefined && emailToSet !== currentUser.email) {
+        if (parsed.data.email !== undefined && emailToSet !== req.user.email) {
             if (emailToSet) {
-                const existingEmail = await prismaClient_1.prisma.user.findUnique({ where: { email: emailToSet } });
+                const existingEmail = await prismaClient_1.prisma.user.findUnique({ where: { email: emailToSet }, select: { id: true } });
                 if (existingEmail) {
-                    return res.status(409).json({ error: "Email déjà utilisé" });
+                    return res.status(409).json({ error: "Email deja utilise" });
                 }
             }
         }
         const updatedUser = await prismaClient_1.prisma.user.update({
-            where: { id: currentUser.id },
+            where: { id: req.user.id },
             data: {
                 ...parsed.data,
                 ...(telephoneToSet !== undefined ? { telephone: telephoneToSet } : {}),
-                ...(email !== undefined ? { email: emailToSet } : {}),
+                ...(parsed.data.email !== undefined ? { email: emailToSet } : {}),
             },
-            select: {
-                id: true,
-                prenom: true,
-                nom: true,
-                telephone: true,
-                email: true,
-                adresse: true,
-                role: true,
-                isActive: true,
-                accessPressing: true,
-                accessAtelier: true,
-                theme: true,
-                createdAt: true,
-                updatedAt: true,
-            },
+            select: userSelect,
         });
         res.json(updatedUser);
     }
     catch (error) {
         console.error("Error updating profile:", error);
-        res.status(500).json({ error: "Erreur lors de la mise à jour du profil" });
+        res.status(500).json({ error: "Erreur lors de la mise a jour du profil" });
     }
 });
-// Change current user password - requires authentication (MUST be before /:id route)
 exports.usersRouter.patch("/me/password", auth_middleware_1.requireAuth, async (req, res) => {
     try {
-        const currentUser = req.user;
-        if (!currentUser) {
-            return res.status(401).json({ error: "Non authentifié" });
+        if (!req.user) {
+            return res.status(401).json({ error: "Non authentifie" });
         }
         const parsed = changePasswordSchema.safeParse(req.body);
         if (!parsed.success) {
             return res.status(400).json({ error: parsed.error.flatten() });
         }
-        const { currentPassword, newPassword } = parsed.data;
-        // Get user with password
-        const user = await prismaClient_1.prisma.user.findUnique({
-            where: { id: currentUser.id },
-        });
+        const user = await prismaClient_1.prisma.user.findUnique({ where: { id: req.user.id }, select: { id: true, passwordHash: true } });
         if (!user) {
-            return res.status(404).json({ error: "Utilisateur non trouvé" });
+            return res.status(404).json({ error: "Utilisateur non trouve" });
         }
-        // Verify current password
         const bcrypt = await import("bcrypt");
-        const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+        const isValid = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
         if (!isValid) {
             return res.status(401).json({ error: "Mot de passe actuel incorrect" });
         }
-        // Hash new password
-        const newPasswordHash = await bcrypt.hash(newPassword, 10);
-        // Update password
+        const newPasswordHash = await bcrypt.hash(parsed.data.newPassword, 10);
         await prismaClient_1.prisma.user.update({
-            where: { id: currentUser.id },
+            where: { id: req.user.id },
             data: { passwordHash: newPasswordHash },
+            select: { id: true },
         });
-        res.json({ message: "Mot de passe changé avec succès" });
+        res.json({ message: "Mot de passe change avec succes" });
     }
     catch (error) {
         console.error("Error changing password:", error);
         res.status(500).json({ error: "Erreur lors du changement de mot de passe" });
     }
 });
-// Get all users - requires authentication
 exports.usersRouter.get("/", auth_middleware_1.requireAuth, async (req, res) => {
     try {
-        const currentUser = req.user;
-        if (!currentUser) {
-            return res.status(401).json({ error: "Non authentifié" });
+        if (!req.user) {
+            return res.status(401).json({ error: "Non authentifie" });
         }
+        if (forbidClientRole(req, res))
+            return;
         let whereClause = {};
-        // Apply role-based filtering
-        if (currentUser.role === 'EMPLOYEE') {
-            // Employees can only see other employees (not admins or super admins)
-            whereClause = { role: 'EMPLOYEE' };
+        if (req.user.role === "EMPLOYEE") {
+            whereClause = { role: "EMPLOYEE" };
         }
-        else if (currentUser.role === 'ADMIN') {
-            // Admins can see employees and other admins (not super admins)
-            whereClause = { role: { in: ['EMPLOYEE', 'ADMIN'] } };
+        else if (req.user.role === "ADMIN") {
+            whereClause = { role: { in: ["EMPLOYEE", "ADMIN"] } };
         }
-        // Super admins can see everyone (no filtering)
         const users = await prismaClient_1.prisma.user.findMany({
             where: whereClause,
-            select: {
-                id: true,
-                prenom: true,
-                nom: true,
-                telephone: true,
-                email: true,
-                adresse: true,
-                role: true,
-                isActive: true,
-                accessPressing: true,
-                accessAtelier: true,
-                theme: true,
-                createdAt: true,
-                updatedAt: true,
-            },
+            select: userSelect,
             orderBy: { createdAt: "desc" },
         });
         res.json({ data: users, total: users.length });
     }
     catch (error) {
         console.error("Error fetching users:", error);
-        res.status(500).json({ error: "Erreur lors de la récupération des utilisateurs" });
+        res.status(500).json({ error: "Erreur lors de la recuperation des utilisateurs" });
     }
 });
-// Get user by ID - requires authentication
 exports.usersRouter.get("/:id", auth_middleware_1.requireAuth, async (req, res) => {
     try {
+        if (forbidClientRole(req, res))
+            return;
         const user = await prismaClient_1.prisma.user.findUnique({
             where: { id: String(req.params.id) },
-            select: {
-                id: true,
-                prenom: true,
-                nom: true,
-                telephone: true,
-                email: true,
-                adresse: true,
-                role: true,
-                isActive: true,
-                accessPressing: true,
-                accessAtelier: true,
-                theme: true,
-                createdAt: true,
-                updatedAt: true,
-            },
+            select: userSelect,
         });
         if (!user) {
-            return res.status(404).json({ error: "Utilisateur non trouvé" });
+            return res.status(404).json({ error: "Utilisateur non trouve" });
         }
         res.json(user);
     }
     catch (error) {
         console.error("Error fetching user:", error);
-        res.status(500).json({ error: "Erreur lors de la récupération de l'utilisateur" });
+        res.status(500).json({ error: "Erreur lors de la recuperation de l'utilisateur" });
     }
 });
-// Create user - requires super admin
 exports.usersRouter.post("/", auth_middleware_1.requireSuperAdmin, async (req, res) => {
     const parsed = createUserSchema.safeParse(req.body);
     if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.flatten() });
     }
-    const { prenom, nom, telephone, email, adresse, role, accessPressing, accessAtelier, password } = parsed.data;
-    const normalizedTelephone = (0, normalize_1.normalizeTelephone)(telephone);
-    const normalizedEmail = (0, normalize_1.normalizeEmail)(email);
+    const normalizedTelephone = (0, normalize_1.normalizeTelephone)(parsed.data.telephone);
+    const normalizedEmail = (0, normalize_1.normalizeEmail)(parsed.data.email);
     if (!normalizedTelephone)
-        return res.status(400).json({ error: "Numéro de téléphone invalide" });
-    // Check if phone already exists
-    const existingPhone = await prismaClient_1.prisma.user.findUnique({ where: { telephone: normalizedTelephone } });
+        return res.status(400).json({ error: "Numero de telephone invalide" });
+    const existingPhone = await prismaClient_1.prisma.user.findUnique({ where: { telephone: normalizedTelephone }, select: { id: true } });
     if (existingPhone) {
-        return res.status(409).json({ error: "Numéro de téléphone déjà utilisé" });
+        return res.status(409).json({ error: "Numero de telephone deja utilise" });
     }
-    // Check if email already exists (if provided)
     if (normalizedEmail) {
-        const existingEmail = await prismaClient_1.prisma.user.findUnique({ where: { email: normalizedEmail } });
+        const existingEmail = await prismaClient_1.prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } });
         if (existingEmail) {
-            return res.status(409).json({ error: "Email déjà utilisé" });
+            return res.status(409).json({ error: "Email deja utilise" });
         }
     }
-    // Hash password
     const bcrypt = await import("bcrypt");
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(parsed.data.password, 10);
     const user = await prismaClient_1.prisma.user.create({
         data: {
-            prenom,
-            nom,
+            prenom: parsed.data.prenom,
+            nom: parsed.data.nom,
             telephone: normalizedTelephone,
             email: normalizedEmail,
-            adresse,
-            role,
-            accessPressing,
-            accessAtelier,
+            adresse: parsed.data.adresse,
+            role: parsed.data.role,
+            accessPressing: parsed.data.accessPressing,
+            accessAtelier: parsed.data.accessAtelier,
             passwordHash,
         },
-        select: {
-            id: true,
-            prenom: true,
-            nom: true,
-            telephone: true,
-            email: true,
-            adresse: true,
-            role: true,
-            isActive: true,
-            accessPressing: true,
-            accessAtelier: true,
-            theme: true,
-            createdAt: true,
-            updatedAt: true,
-        },
+        select: userSelect,
     });
     res.status(201).json(user);
 });
-// Update user - requires super admin
 exports.usersRouter.patch("/:id", auth_middleware_1.requireSuperAdmin, async (req, res) => {
     const parsed = updateUserSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -323,7 +243,7 @@ exports.usersRouter.patch("/:id", auth_middleware_1.requireSuperAdmin, async (re
         if (parsed.data.telephone !== undefined) {
             const normalized = (0, normalize_1.normalizeTelephone)(parsed.data.telephone);
             if (!normalized) {
-                return res.status(400).json({ error: "Numéro de téléphone invalide" });
+                return res.status(400).json({ error: "Numero de telephone invalide" });
             }
             telephoneToSet = normalized;
         }
@@ -335,30 +255,15 @@ exports.usersRouter.patch("/:id", auth_middleware_1.requireSuperAdmin, async (re
                 ...(telephoneToSet !== undefined ? { telephone: telephoneToSet } : {}),
                 ...(parsed.data.email !== undefined ? { email: emailToSet } : {}),
             },
-            select: {
-                id: true,
-                prenom: true,
-                nom: true,
-                telephone: true,
-                email: true,
-                adresse: true,
-                role: true,
-                isActive: true,
-                accessPressing: true,
-                accessAtelier: true,
-                theme: true,
-                createdAt: true,
-                updatedAt: true,
-            },
+            select: userSelect,
         });
         res.json(user);
     }
     catch (error) {
         console.error("Error updating user:", error);
-        res.status(500).json({ error: "Erreur lors de la mise à jour de l'utilisateur" });
+        res.status(500).json({ error: "Erreur lors de la mise a jour de l'utilisateur" });
     }
 });
-// Delete user - requires super admin
 exports.usersRouter.delete("/:id", auth_middleware_1.requireSuperAdmin, async (req, res) => {
     try {
         await prismaClient_1.prisma.user.delete({ where: { id: String(req.params.id) } });

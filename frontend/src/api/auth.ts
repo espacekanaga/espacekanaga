@@ -1,11 +1,24 @@
-import { api, tokenStorage } from './client';
-import type { LoginCredentials, AuthResponse, User } from '../types/auth';
+import { api, tokenStorage, API_URL } from './client';
+import type { LoginCredentials, AuthResponse, RegisterClientPayload, User } from '../types/auth';
+import axios from 'axios';
 
 export { tokenStorage };
 
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const { data } = await api.post<AuthResponse>('/auth/login', credentials);
+    // Use raw axios without auth interceptor for login
+    const { data } = await axios.post<AuthResponse>(`${API_URL}/auth/login`, credentials, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    tokenStorage.setTokens(data.accessToken, data.refreshToken);
+    return data;
+  },
+
+  register: async (payload: RegisterClientPayload): Promise<AuthResponse> => {
+    // Use raw axios without auth interceptor for registration
+    const { data } = await axios.post<AuthResponse>(`${API_URL}/auth/register`, payload, {
+      headers: { 'Content-Type': 'application/json' }
+    });
     tokenStorage.setTokens(data.accessToken, data.refreshToken);
     return data;
   },
@@ -48,7 +61,12 @@ export const authApi = {
       telephone: payload.telephone || '',
       email: payload.email || '',
       role: payload.role,
-      isActive: true,
+      adresse: payload.adresse || '',
+      clientType: payload.clientType,
+      accessPressing: payload.accessPressing || false,
+      accessAtelier: payload.accessAtelier || false,
+      theme: payload.theme || 'dark',
+      isActive: payload.isActive ?? true,
       createdAt: '',
       updatedAt: '',
     };

@@ -89,7 +89,7 @@ export function OrdersListPage() {
   return (
     <div>
       <PageHeader title="Commandes" description="Liste des commandes">
-        <Button variant="secondary" onClick={() => navigate('/')}>Retour</Button>
+          <Button variant="secondary" onClick={() => navigate('/dashboard')}>Retour</Button>
         <Button onClick={() => navigate('/orders/new')}>Nouvelle commande</Button>
       </PageHeader>
 

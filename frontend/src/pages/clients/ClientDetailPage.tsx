@@ -6,7 +6,6 @@ import { useForm } from '../../hooks/useForm';
 import { clientsApi } from '../../api/clients';
 import { measurementsApi } from '../../api/measurements';
 import { ordersApi } from '../../api/orders';
-import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Input, TextArea, Select } from '../../components/ui/Form';
@@ -93,48 +92,66 @@ export function ClientDetailPage() {
   if (error || !client) return <EmptyState message="Client non trouvé" />;
 
   return (
-    <div>
-      <PageHeader title={`${client.prenom} ${client.nom}`}>
-        <div className="flex gap-2">
-          <Button
-            variant={isEditing ? 'secondary' : 'primary'}
-            onClick={() => setIsEditing(!isEditing)}
+    <div className="pb-24">
+      {/* Header avec bouton retour */}
+      <div className="mb-6">
+        <button
+          onClick={() => navigate('/clients')}
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors mb-4"
+        >
+          <ArrowLeftIcon className="w-5 h-5" />
+          <span className="text-sm font-medium">Retour à la liste</span>
+        </button>
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
+              {client.prenom} {client.nom}
+            </h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
+              <PhoneIcon className="w-4 h-4" />
+              {client.telephone}
+            </p>
+          </div>
+          <Badge 
+            variant={client.clientType === 'atelier' ? 'info' : client.clientType === 'pressing' ? 'warning' : 'success'}
+            className="text-sm px-3 py-1"
           >
-            {isEditing ? 'Annuler' : 'Modifier'}
-          </Button>
-          <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
-            Supprimer
-          </Button>
+            {clientTypeLabels[client.clientType || 'both']}
+          </Badge>
         </div>
-      </PageHeader>
+      </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="flex gap-8">
+      {/* Tabs améliorés */}
+      <div className="border-b border-slate-200 dark:border-slate-700 mb-6">
+        <nav className="flex gap-2">
           <TabButton
             active={activeTab === 'info'}
             onClick={() => setActiveTab('info')}
             label="Informations"
+            icon={UserIcon}
           />
           <TabButton
             active={activeTab === 'measurements'}
             onClick={() => setActiveTab('measurements')}
             label={`Mensurations (${measurements?.length || 0})`}
+            icon={RulerIcon}
           />
           <TabButton
             active={activeTab === 'orders'}
             onClick={() => setActiveTab('orders')}
             label={`Commandes (${orders?.length || 0})`}
+            icon={ShoppingBagIcon}
           />
         </nav>
       </div>
 
       {activeTab === 'info' && (
-        <Card>
+        <Card className="shadow-sm border-slate-200 dark:border-slate-700">
           <CardContent className="p-6">
             {isEditing ? (
-              <form onSubmit={form.handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={form.handleSubmit} className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
                     label="Prénom *"
                     value={form.values.prenom}
@@ -175,21 +192,9 @@ export function ClientDetailPage() {
                   onChange={(e) => form.handleChange('notes', e.target.value)}
                   rows={3}
                 />
-                <div className="flex gap-2">
-                  <Button type="submit" isLoading={form.isSubmitting}>
-                    Enregistrer
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => setIsEditing(false)}
-                  >
-                    Annuler
-                  </Button>
-                </div>
               </form>
             ) : (
-              <div className="space-y-4">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 <InfoRow label="Prénom" value={client.prenom} />
                 <InfoRow label="Nom" value={client.nom} />
                 <InfoRow label="Téléphone" value={client.telephone} />
@@ -228,18 +233,23 @@ export function ClientDetailPage() {
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="max-w-md w-full mx-4">
+          <Card className="max-w-md w-full mx-4 shadow-2xl">
             <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-2">Confirmer la suppression</h3>
-              <p className="text-gray-600 mb-4">
-                Êtes-vous sûr de vouloir supprimer le client <strong>{client.prenom} {client.nom}</strong> ?
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <TrashIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Confirmer la suppression</h3>
+              </div>
+              <p className="text-slate-600 dark:text-slate-400 mb-6">
+                Êtes-vous sûr de vouloir supprimer le client <strong className="text-slate-900 dark:text-slate-100">{client.prenom} {client.nom}</strong> ?
                 Cette action est irréversible.
               </p>
-              <div className="flex gap-2">
-                <Button variant="danger" onClick={handleDelete}>
+              <div className="flex gap-3">
+                <Button variant="danger" onClick={handleDelete} className="flex-1">
                   Supprimer
                 </Button>
-                <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
+                <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)} className="flex-1">
                   Annuler
                 </Button>
               </div>
@@ -247,6 +257,51 @@ export function ClientDetailPage() {
           </Card>
         </div>
       )}
+
+      {/* Footer sticky avec actions */}
+      <div className="fixed bottom-0 left-0 right-0 lg:left-72 bg-white/80 dark:bg-slate-900/95 backdrop-blur-xl border-t border-slate-200 dark:border-slate-700 p-4 z-40">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            Client créé le {new Date(client.createdAt).toLocaleDateString('fr-FR')}
+          </div>
+          <div className="flex gap-3">
+            {isEditing ? (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsEditing(false)}
+                >
+                  Annuler
+                </Button>
+                <Button 
+                  onClick={form.handleSubmit}
+                  isLoading={form.isSubmitting}
+                >
+                  <SaveIcon className="w-4 h-4 mr-2" />
+                  Enregistrer
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="danger"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <TrashIcon className="w-4 h-4 mr-2" />
+                  Supprimer
+                </Button>
+                <Button
+                  onClick={() => setIsEditing(true)}
+                >
+                  <PencilIcon className="w-4 h-4 mr-2" />
+                  Modifier
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -255,20 +310,23 @@ function TabButton({
   active,
   onClick,
   label,
+  icon: Icon,
 }: {
   active: boolean;
   onClick: () => void;
   label: string;
+  icon: React.ComponentType<{ className?: string }>;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`py-4 px-1 border-b-2 font-medium text-sm ${
+      className={`flex items-center gap-2 py-3 px-4 font-medium text-sm transition-all rounded-t-lg ${
         active
-          ? 'border-blue-500 text-blue-600'
-          : 'border-transparent text-gray-500 hover:text-gray-700'
+          ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20'
+          : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
       }`}
     >
+      <Icon className="w-4 h-4" />
       {label}
     </button>
   );
@@ -276,9 +334,9 @@ function TabButton({
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex justify-between py-2 border-b border-gray-100 last:border-0">
-      <span className="text-gray-500">{label}</span>
-      <span className="font-medium">{value}</span>
+    <div className="flex justify-between items-center py-4 px-2 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors rounded-lg">
+      <span className="text-slate-500 dark:text-slate-400 font-medium">{label}</span>
+      <span className="font-semibold text-slate-900 dark:text-slate-100">{value}</span>
     </div>
   );
 }
@@ -451,18 +509,23 @@ function MeasurementsTab({
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="max-w-md w-full mx-4">
+          <Card className="max-w-md w-full mx-4 shadow-2xl">
             <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-2 text-slate-100">Confirmer la suppression</h3>
-              <p className="text-slate-400 mb-4">
-                Êtes-vous sûr de vouloir supprimer <strong className="text-slate-200">{selectedMeasurements.size}</strong> mensuration(s) ?
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <TrashIcon className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Confirmer la suppression</h3>
+              </div>
+              <p className="text-slate-600 dark:text-slate-400 mb-6">
+                Êtes-vous sûr de vouloir supprimer <strong className="text-slate-900 dark:text-slate-100">{selectedMeasurements.size}</strong> mensuration(s) ?
                 Cette action est irréversible.
               </p>
-              <div className="flex gap-2">
-                <Button variant="danger" onClick={handleDeleteSelected} isLoading={isLoading}>
+              <div className="flex gap-3">
+                <Button variant="danger" onClick={handleDeleteSelected} isLoading={isLoading} className="flex-1">
                   Supprimer
                 </Button>
-                <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)}>
+                <Button variant="secondary" onClick={() => setShowDeleteConfirm(false)} className="flex-1">
                   Annuler
                 </Button>
               </div>
@@ -552,7 +615,7 @@ function OrdersTab({ orders }: { orders: Order[] }) {
   const navigate = useNavigate();
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {orders.length === 0 ? (
         <EmptyState message="Aucune commande" />
       ) : (
@@ -561,14 +624,24 @@ function OrdersTab({ orders }: { orders: Order[] }) {
             key={order.id}
             hoverable
             onClick={() => navigate(`/orders/${order.id}`)}
+            className="shadow-sm border-slate-200 dark:border-slate-700"
           >
             <CardContent className="p-4 flex items-center justify-between">
-              <div>
-                <p className="font-medium">Commande #{order.id.slice(-6)}</p>
-                <p className="text-sm text-gray-500">
-                  {order.type === 'pressing' ? 'Pressing' : 'Couture'} •{' '}
-                  {new Date(order.createdAt).toLocaleDateString('fr-FR')}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  order.type === 'pressing' 
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                    : 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                }`}>
+                  {order.type === 'pressing' ? <SparklesIcon className="w-5 h-5" /> : <ScissorsIcon className="w-5 h-5" />}
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900 dark:text-slate-100">Commande #{order.id.slice(-6)}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {order.type === 'pressing' ? 'Pressing' : 'Couture'} •{' '}
+                    {new Date(order.createdAt).toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-4">
                 <Badge
@@ -582,12 +655,102 @@ function OrdersTab({ orders }: { orders: Order[] }) {
                 >
                   {order.status.replace('_', ' ')}
                 </Badge>
-                <span className="font-medium">{order.prixTotal.toLocaleString()} FCFA</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{order.prixTotal.toLocaleString()} FCFA</span>
+                <ChevronRightIcon className="w-5 h-5 text-slate-400" />
               </div>
             </CardContent>
           </Card>
         ))
       )}
     </div>
+  );
+}
+
+// Icons
+function ArrowLeftIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+    </svg>
+  );
+}
+
+function PhoneIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+    </svg>
+  );
+}
+
+function UserIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+  );
+}
+
+function RulerIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+    </svg>
+  );
+}
+
+function ShoppingBagIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+    </svg>
+  );
+}
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  );
+}
+
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+    </svg>
+  );
+}
+
+function SaveIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+    </svg>
+  );
+}
+
+function SparklesIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+    </svg>
+  );
+}
+
+function ScissorsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4.583-7.502a2.975 2.975 0 00-.123-3.326 3.003 3.003 0 00-4.996-3.342L3 14m17-4l-4.583 7.502a2.975 2.975 0 01.123 3.326 3.003 3.003 0 004.996 3.342L21 10M9 7a3 3 0 11-6 0 3 3 0 016 0zm12 0a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
   );
 }

@@ -95,11 +95,11 @@ export function CoutureDashboard() {
                   onClick={() => navigate(`/orders/${order.id}`)}
                   className="flex items-center justify-between p-3 rounded-lg border border-slate-700/50 hover:bg-slate-800/60 cursor-pointer"
                 >
-                  <div>
-                    <p className="font-medium">
-                      #{order.id.slice(-6)} - {order.client.prenom} {order.client.nom}
-                    </p>
-                    <p className="text-sm text-slate-400">
+                    <div>
+                      <p className="font-medium">
+                        #{order.id.slice(-6)} - {order.client.prenom} {order.client.nom}
+                      </p>
+                      <p className="text-sm text-slate-400">
                       {order.couture?.typeService === 'retouche' ? 'Retouche' : 'Sur mesure'}
                       {order.couture?.deadline && (
                         <span className="ml-2">
@@ -107,6 +107,14 @@ export function CoutureDashboard() {
                         </span>
                       )}
                     </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs text-slate-300">
+                        {order.couture?.measurement ? `${Object.keys(order.couture.measurement.data).length} mesures` : 'Sans mensurations'}
+                      </span>
+                      <span className="rounded-full bg-slate-800 px-2.5 py-1 text-xs text-slate-300">
+                        {order.couture?.modelImage ? 'Modele joint' : 'Sans image'}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <Badge

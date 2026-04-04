@@ -8,6 +8,7 @@ export interface Order {
   type: OrderType;
   status: OrderStatus;
   prixTotal: number;
+  pricingVisible?: boolean;
   createdById: string;
   updatedById: string;
   createdAt: string;
@@ -56,7 +57,12 @@ export interface CoutureOrder {
   modelImage: string | null; // URL/path to model image
   measurement?: {
     id: string;
+    clientId: string;
+    orderId: string | null;
     data: Record<string, number | string>;
+    notes: string | null;
+    createdAt: string;
+    updatedAt: string;
   } | null;
 }
 
@@ -81,7 +87,11 @@ export interface CreateOrderRequest {
   couture?: {
     typeService: CoutureServiceType;
     description?: string;
+    modelReference?: string;
+    modelNotes?: string;
     measurementId?: string;
+    measurementData?: Record<string, number | string>;
+    measurementNotes?: string;
     tissu?: string;
     deadline?: string;
     modelImage?: string; // Base64 encoded image

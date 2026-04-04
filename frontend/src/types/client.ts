@@ -15,9 +15,11 @@ export interface Client {
 export interface Measurement {
   id: string;
   clientId: string;
-  data: Record<string, number>;
+  orderId?: string | null;
+  data: Record<string, number | string>;
   notes: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface CreateClientRequest extends Record<string, unknown> {
@@ -34,6 +36,7 @@ export interface UpdateClientRequest {
   nom?: string;
   prenom?: string;
   telephone?: string;
+  email?: string | null;
   adresse?: string;
   notes?: string;
   clientType?: 'pressing' | 'atelier' | 'both';

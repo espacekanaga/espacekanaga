@@ -1,11 +1,17 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../hooks/useToast';
 import { ToastProvider, ToastContainer } from './ui/Toast';
 
+type NavigationItem = {
+  name: string;
+  href: string;
+  icon: ({ className }: { className?: string }) => ReactElement;
+};
+
 export function Layout() {
-  const { user, logout, isSuperAdmin, isAdmin, hasPressingAccess, hasAtelierAccess } = useAuth();
+  const { user, logout, isSuperAdmin, isAdmin, isClient, hasPressingAccess, hasAtelierAccess } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -14,6 +20,41 @@ export function Layout() {
   const desktopDropdownRef = useRef<HTMLDivElement>(null);
   const mobileDropdownRef = useRef<HTMLDivElement>(null);
 
+  const isClientRoute = location.pathname.startsWith('/client');
+  const homeHref = isClientRoute ? '/client/dashboard' : '/dashboard';
+  const profileHref = isClientRoute ? '/client/profile' : '/profile';
+  const settingsHref = isClientRoute ? '/client/settings' : '/settings';
+
+  const adminNavigation = useMemo<NavigationItem[]>(
+    () => [
+      { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+      { name: 'Clients', href: '/clients', icon: UsersIcon },
+      { name: 'Commandes', href: '/orders', icon: ShoppingBagIcon },
+      ...((hasPressingAccess || hasAtelierAccess || isSuperAdmin) ? [{ name: 'Facturation', href: '/invoices', icon: ReceiptIcon }] : []),
+      ...(isAdmin ? [
+        { name: 'Espace Pressing', href: '/pressing', icon: SparklesIcon },
+        { name: 'Espace Atelier', href: '/atelier', icon: ScissorsIcon },
+      ] : []),
+      ...(isSuperAdmin ? [{ name: 'Utilisateurs', href: '/users', icon: UserCogIcon }] : []),
+      ...(isSuperAdmin ? [{ name: 'Roles & Permissions', href: '/roles', icon: ShieldIcon }] : []),
+    ],
+    [hasAtelierAccess, hasPressingAccess, isAdmin, isSuperAdmin]
+  );
+
+  const clientNavigation = useMemo<NavigationItem[]>(
+    () => [
+      { name: 'Mon Espace', href: '/client/dashboard', icon: HomeIcon },
+      { name: 'Mes Commandes', href: '/client/orders', icon: ShoppingBagIcon },
+      { name: 'Espace Pressing', href: '/client/pressing', icon: SparklesIcon },
+      { name: 'Espace Atelier', href: '/client/atelier', icon: ScissorsIcon },
+      { name: 'Mon Profil', href: '/client/profile', icon: UserIcon },
+      { name: 'Parametres', href: '/client/settings', icon: CogIcon },
+    ],
+    []
+  );
+
+  const navigation = isClientRoute ? clientNavigation : adminNavigation;
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -21,7 +62,6 @@ export function Layout() {
 
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
@@ -31,46 +71,33 @@ export function Layout() {
         setIsProfileDropdownOpen(false);
       }
     }
+
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: HomeIcon },
-    { name: 'Clients', href: '/clients', icon: UsersIcon },
-    { name: 'Commandes', href: '/orders', icon: ShoppingBagIcon },
-    ...((hasPressingAccess || hasAtelierAccess || isSuperAdmin) ? [{ name: 'Facturation', href: '/invoices', icon: ReceiptIcon }] : []),
-    ...(isAdmin ? [
-      { name: 'Espace Pressing', href: '/pressing', icon: SparklesIcon },
-      { name: 'Espace Atelier', href: '/atelier', icon: ScissorsIcon },
-    ] : []),
-    ...(isSuperAdmin ? [{ name: 'Utilisateurs', href: '/users', icon: UserCogIcon }] : []),
-    ...(isSuperAdmin ? [{ name: 'Rôles & Permissions', href: '/roles', icon: ShieldIcon }] : []),
-  ];
+  const headerTitle = navigation.find((item) => location.pathname === item.href || location.pathname.startsWith(`${item.href}/`))?.name
+    || (isClientRoute ? 'Mon Espace' : 'Dashboard');
 
   return (
     <ToastProvider value={toast}>
       <div className="min-h-screen text-slate-900 dark:text-slate-50">
-        {/* Mobile overlay */}
-        {isMobileMenuOpen && (
-          <div
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
-            onClick={closeMobileMenu}
-          />
-        )}
+        {isMobileMenuOpen ? (
+          <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={closeMobileMenu} />
+        ) : null}
 
-        {/* Sidebar (desktop) + drawer (mobile) */}
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-72 border-r border-slate-200/70 bg-white/80 backdrop-blur-xl transform transition-transform duration-200 dark:border-slate-700/50 dark:bg-slate-900/95
-            ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-            lg:translate-x-0`}
+          className={`fixed inset-y-0 left-0 z-50 w-72 border-r border-slate-200/70 bg-white/85 backdrop-blur-xl transition-transform duration-200 dark:border-slate-700/50 dark:bg-slate-900/95 ${
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          } lg:translate-x-0`}
         >
-          <div className="flex items-center h-16 px-6 border-b border-slate-200/70 dark:border-slate-700/50">
-            <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-violet-400">
+          <div className="flex h-16 items-center border-b border-slate-200/70 px-6 dark:border-slate-700/50">
+            <Link to={homeHref} className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-violet-500">
               Espace Kanaga
-            </h1>
+            </Link>
           </div>
-          <nav className="p-4 space-y-1">
+
+          <nav className="space-y-1 p-4">
             {navigation.map((item) => {
               const active = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
               return (
@@ -78,164 +105,153 @@ export function Layout() {
                   key={item.name}
                   to={item.href}
                   onClick={closeMobileMenu}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors
-                    ${
-                      active
-                        ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20'
-                        : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-800/60'
-                    }`}
+                  className={`flex items-center rounded-xl px-4 py-3 text-sm font-medium transition ${
+                    active
+                      ? 'border border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300'
+                      : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800/60'
+                  }`}
                 >
-                  <item.icon className="w-5 h-5 mr-3" />
+                  <item.icon className="mr-3 h-5 w-5" />
                   {item.name}
                 </Link>
               );
             })}
           </nav>
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-200/70 bg-white/80 dark:border-slate-700/50 dark:bg-slate-900/95">
+
+          <div className="absolute bottom-0 left-0 right-0 border-t border-slate-200/70 bg-white/85 p-4 dark:border-slate-700/50 dark:bg-slate-900/95">
             <button
               onClick={handleLogout}
-              className="flex items-center w-full px-4 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100/70 hover:text-slate-900 transition-colors dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
+              className="flex w-full items-center rounded-xl px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800/60"
             >
-              <LogoutIcon className="w-5 h-5 mr-3" />
-              Déconnexion
+              <LogoutIcon className="mr-3 h-5 w-5" />
+              Deconnexion
             </button>
           </div>
         </aside>
 
-        {/* Header (desktop) */}
-        <header className="hidden lg:flex fixed top-0 right-0 left-72 h-16 border-b border-slate-200/70 bg-white/70 backdrop-blur-xl items-center justify-between px-6 z-30 dark:border-slate-700/50 dark:bg-slate-900/80">
-          <div className="font-semibold text-slate-900 dark:text-slate-100">
-            {navigation.find(n => n.href === location.pathname)?.name || 'Dashboard'}
+        <header className="hidden fixed left-72 right-0 top-0 z-30 h-16 items-center justify-between border-b border-slate-200/70 bg-white/70 px-6 backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/80 lg:flex">
+          <div className="flex items-center gap-4">
+            <div className="font-semibold text-slate-900 dark:text-slate-100">{headerTitle}</div>
+            <Link 
+              to="/" 
+              className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition"
+            >
+              <HomeIcon className="w-4 h-4" />
+              Accueil
+            </Link>
           </div>
-          
-          {/* Profile Dropdown Desktop */}
-          <div className="relative hidden lg:block" ref={desktopDropdownRef}>
+
+          <div className="relative" ref={desktopDropdownRef}>
             <button
-              onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-              className="flex items-center gap-3 hover:bg-slate-100/70 px-3 py-2 rounded-lg transition-colors dark:hover:bg-slate-800/60"
+              onClick={() => setIsProfileDropdownOpen((value) => !value)}
+              className="flex items-center gap-3 rounded-xl px-3 py-2 transition hover:bg-slate-100/70 dark:hover:bg-slate-800/60"
             >
               <div className="text-right">
                 <p className="text-sm font-medium text-slate-900 dark:text-slate-200">{user?.prenom} {user?.nom}</p>
-                <p className="text-xs text-slate-600 dark:text-slate-400">{user?.email || user?.telephone}</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400">{isClient ? 'Mon Espace' : user?.email || user?.telephone}</p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-medium">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-600 font-medium text-white">
                 {(user?.email?.charAt(0) || user?.prenom?.charAt(0) || '?').toUpperCase()}
               </div>
-              <ChevronDownIcon className={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDownIcon className={`h-4 w-4 text-slate-500 transition-transform dark:text-slate-400 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {isProfileDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-xl py-2 z-50 dark:bg-slate-800 dark:border-slate-700">
-                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+            {isProfileDropdownOpen ? (
+              <div className="absolute right-0 mt-2 w-64 rounded-xl border border-slate-200 bg-white py-2 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+                <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
                   <p className="font-semibold text-slate-900 dark:text-slate-100">{user?.prenom} {user?.nom}</p>
                   <p className="text-xs text-slate-600 dark:text-slate-400">{user?.role}</p>
                 </div>
                 <div className="py-1">
-                  <Link
-                    to="/profile"
-                    onClick={() => setIsProfileDropdownOpen(false)}
-                    className="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-100/70 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-slate-100"
-                  >
-                    <UserIcon className="w-4 h-4 mr-3" />
+                  <Link to={profileHref} onClick={() => setIsProfileDropdownOpen(false)} className="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700/50">
+                    <UserIcon className="mr-3 h-4 w-4" />
                     Mon Profil
                   </Link>
-                  <Link
-                    to="/settings"
-                    onClick={() => setIsProfileDropdownOpen(false)}
-                    className="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-100/70 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-slate-100"
-                  >
-                    <CogIcon className="w-4 h-4 mr-3" />
-                    Paramètres
+                  <Link to={settingsHref} onClick={() => setIsProfileDropdownOpen(false)} className="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700/50">
+                    <CogIcon className="mr-3 h-4 w-4" />
+                    Parametres
                   </Link>
                 </div>
-                <div className="border-t border-slate-200 dark:border-slate-700 mt-1 pt-1">
+                <div className="mt-1 border-t border-slate-200 pt-1 dark:border-slate-700">
                   <button
                     onClick={() => {
                       setIsProfileDropdownOpen(false);
                       handleLogout();
                     }}
-                    className="flex items-center w-full px-4 py-2 text-sm text-red-500 hover:bg-slate-100/70 dark:text-red-400 dark:hover:bg-slate-700/50"
+                    className="flex w-full items-center px-4 py-2 text-sm text-red-500 hover:bg-slate-100 dark:text-red-400 dark:hover:bg-slate-700/50"
                   >
-                    <LogoutIcon className="w-4 h-4 mr-3" />
-                    Déconnexion
+                    <LogoutIcon className="mr-3 h-4 w-4" />
+                    Deconnexion
                   </button>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </header>
 
-        {/* Topbar (mobile) */}
-        <header className="sticky top-0 z-30 h-16 border-b border-slate-200/70 bg-white/70 backdrop-blur-xl flex items-center justify-between px-4 lg:hidden dark:border-slate-700/50 dark:bg-slate-900/80">
-          <div className="flex items-center">
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="p-2 rounded-lg hover:bg-slate-100/70 transition-colors dark:hover:bg-slate-800/60"
-              aria-label="Ouvrir le menu"
-            >
-              <MenuIcon className="w-6 h-6" />
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/70 bg-white/70 px-4 backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/80 lg:hidden">
+          <div className="flex items-center gap-2">
+            <button onClick={() => setIsMobileMenuOpen(true)} className="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800/60" aria-label="Ouvrir le menu">
+              <MenuIcon className="h-6 w-6" />
             </button>
-            <div className="ml-3 font-semibold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-violet-400">
-              Espace Kanaga
-            </div>
+            <Link to={homeHref} className="font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-violet-400">
+              {isClientRoute ? 'Mon Espace' : 'Espace Kanaga'}
+            </Link>
           </div>
+          
+          <Link 
+            to="/" 
+            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            <HomeIcon className="w-5 h-5" />
+          </Link>
 
-          {/* Profile Dropdown (mobile) */}
-          <div className="relative lg:hidden" ref={mobileDropdownRef}>
+          <div className="relative" ref={mobileDropdownRef}>
             <button
-              onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-              className="flex items-center gap-2 hover:bg-slate-100/70 px-2 py-1.5 rounded-lg transition-colors dark:hover:bg-slate-800/60"
+              onClick={() => setIsProfileDropdownOpen((value) => !value)}
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-slate-100/70 dark:hover:bg-slate-800/60"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-medium text-sm">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-sm font-medium text-white">
                 {(user?.email?.charAt(0) || user?.prenom?.charAt(0) || '?').toUpperCase()}
               </div>
-              <ChevronDownIcon className={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDownIcon className={`h-4 w-4 text-slate-500 transition-transform dark:text-slate-400 ${isProfileDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {isProfileDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-lg shadow-xl py-2 z-50 dark:bg-slate-800 dark:border-slate-700">
-                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-                  <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{user?.prenom} {user?.nom}</p>
+            {isProfileDropdownOpen ? (
+              <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white py-2 shadow-xl dark:border-slate-700 dark:bg-slate-800">
+                <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-700">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{user?.prenom} {user?.nom}</p>
                   <p className="text-xs text-slate-600 dark:text-slate-400">{user?.email || user?.telephone}</p>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">{user?.role}</p>
+                  <p className="mt-0.5 text-xs text-blue-600 dark:text-blue-400">{user?.role}</p>
                 </div>
                 <div className="py-1">
-                  <Link
-                    to="/profile"
-                    onClick={() => setIsProfileDropdownOpen(false)}
-                    className="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-100/70 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-slate-100"
-                  >
-                    <UserIcon className="w-4 h-4 mr-3" />
+                  <Link to={profileHref} onClick={() => setIsProfileDropdownOpen(false)} className="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700/50">
+                    <UserIcon className="mr-3 h-4 w-4" />
                     Mon Profil
                   </Link>
-                  <Link
-                    to="/settings"
-                    onClick={() => setIsProfileDropdownOpen(false)}
-                    className="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-100/70 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700/50 dark:hover:text-slate-100"
-                  >
-                    <CogIcon className="w-4 h-4 mr-3" />
-                    Paramètres
+                  <Link to={settingsHref} onClick={() => setIsProfileDropdownOpen(false)} className="flex items-center px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700/50">
+                    <CogIcon className="mr-3 h-4 w-4" />
+                    Parametres
                   </Link>
                 </div>
-                <div className="border-t border-slate-200 dark:border-slate-700 mt-1 pt-1">
+                <div className="mt-1 border-t border-slate-200 pt-1 dark:border-slate-700">
                   <button
                     onClick={() => {
                       setIsProfileDropdownOpen(false);
                       handleLogout();
                     }}
-                    className="flex items-center w-full px-4 py-2 text-sm text-red-500 hover:bg-slate-100/70 dark:text-red-400 dark:hover:bg-slate-700/50"
+                    className="flex w-full items-center px-4 py-2 text-sm text-red-500 hover:bg-slate-100 dark:text-red-400 dark:hover:bg-slate-700/50"
                   >
-                    <LogoutIcon className="w-4 h-4 mr-3" />
-                    Déconnexion
+                    <LogoutIcon className="mr-3 h-4 w-4" />
+                    Deconnexion
                   </button>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </header>
 
-        {/* Main content */}
-        <main className="lg:ml-72 lg:pt-16 p-4 sm:p-6 lg:p-8">
+        <main className="p-4 sm:p-6 lg:ml-72 lg:p-8 lg:pt-24">
           <Outlet />
         </main>
 
@@ -245,11 +261,10 @@ export function Layout() {
   );
 }
 
-// Icons
 function HomeIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2 7-7 7 7 2 2M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
     </svg>
   );
 }
@@ -306,7 +321,7 @@ function SparklesIcon({ className }: { className?: string }) {
 function ScissorsIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4.583-7.502a2.975 2.975 0 00-.123-3.326 3.003 3.003 0 00-4.996-3.342L3 14m17-4l-4.583 7.502a2.975 2.975 0 01.123 3.326 3.003 3.003 0 004.996 3.342L21 10M9 7a3 3 0 11-6 0 3 3 0 016 0zm12 0a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4.583-7.502a2.975 2.975 0 00-.123-3.326 3.003 3.003 0 00-4.996-3.342L3 14m17-4l-4.583 7.502a2.975 2.975 0 01.123 3.326 3.003 3.003 0 014.996 3.342L21 10M9 7a3 3 0 11-6 0 3 3 0 016 0zm12 0a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   );
 }
@@ -340,6 +355,14 @@ function CogIcon({ className }: { className?: string }) {
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  );
+}
+
+function BanknoteIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
     </svg>
   );
 }

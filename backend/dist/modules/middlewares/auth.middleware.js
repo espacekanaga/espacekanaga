@@ -21,6 +21,7 @@ function requireAuth(req, res, next) {
             nom: payload.nom,
             telephone: payload.telephone,
             email: payload.email,
+            clientType: payload.clientType,
             accessPressing: payload.accessPressing,
             accessAtelier: payload.accessAtelier,
         };
@@ -47,6 +48,7 @@ function requireSuperAdmin(req, res, next) {
             nom: payload.nom,
             telephone: payload.telephone,
             email: payload.email,
+            clientType: payload.clientType,
             accessPressing: payload.accessPressing,
             accessAtelier: payload.accessAtelier,
         };

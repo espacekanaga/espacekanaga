@@ -18,6 +18,11 @@ const orderSchema = z.object({
   couture: z.object({
     typeService: z.enum(["sur_mesure", "retouche"]),
     description: z.string().optional(),
+    modelReference: z.string().optional(),
+    modelNotes: z.string().optional(),
+    measurementId: z.string().uuid().optional(),
+    measurementData: z.record(z.string(), z.union([z.number(), z.string(), z.null()])).optional(),
+    measurementNotes: z.string().optional(),
     tissu: z.string().optional(),
     deadline: z.string().optional(),
     modelImage: z.string().optional(), // Base64 or URL of the model image
@@ -26,12 +31,95 @@ const orderSchema = z.object({
 
 export const ordersRouter = Router();
 
+const measurementSelect = {
+  id: true,
+  clientId: true,
+  orderId: true,
+  data: true,
+  notes: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+const invoiceSelect = {
+  id: true,
+  orderId: true,
+  filePath: true,
+  createdAt: true,
+} as const;
+
+const orderInclude = {
+  client: { select: { id: true, prenom: true, nom: true, telephone: true } },
+  pressing: true,
+  couture: {
+    include: {
+      measurement: {
+        select: measurementSelect,
+      },
+    },
+  },
+  invoice: { select: invoiceSelect },
+  createdBy: { select: { id: true, prenom: true, nom: true, role: true } },
+  updatedBy: { select: { id: true, prenom: true, nom: true, role: true } },
+} as const;
+
+function ensureNotClient(req: Request, res: any) {
+  if (req.user?.role === "CLIENT") {
+    res.status(403).json({ error: "Acces refuse" });
+    return true;
+  }
+  return false;
+}
+
 function canModifyOrder(orderType: OrderType, user: Request["user"] | undefined) {
   if (!user) return false;
   if (user.role === "SUPER_ADMIN") return true;
   if (orderType === OrderType.pressing) return user.accessPressing === true;
   if (orderType === OrderType.couture) return user.accessAtelier === true;
   return false;
+}
+
+function normalizeMeasurementPayload(input?: Record<string, string | number | null>) {
+  if (!input) return undefined;
+
+  const data = Object.entries(input).reduce<Record<string, string | number>>((acc, [rawKey, rawValue]) => {
+    const key = rawKey.trim();
+    if (!key || rawValue === null || rawValue === undefined) return acc;
+
+    if (typeof rawValue === "number") {
+      if (Number.isFinite(rawValue)) {
+        acc[key] = rawValue;
+      }
+      return acc;
+    }
+
+    const value = rawValue.trim();
+    if (!value) return acc;
+
+    const normalizedNumber = value.replace(",", ".");
+    if (/^-?\d+(\.\d+)?$/.test(normalizedNumber)) {
+      const parsed = Number(normalizedNumber);
+      if (Number.isFinite(parsed)) {
+        acc[key] = parsed;
+        return acc;
+      }
+    }
+
+    acc[key] = value;
+    return acc;
+  }, {});
+
+  return Object.keys(data).length ? data : undefined;
+}
+
+function buildCoutureDescription(couture: NonNullable<z.infer<typeof orderSchema>["couture"]>) {
+  const sections = [
+    couture.description?.trim(),
+    couture.modelReference?.trim() ? `Modele / reference: ${couture.modelReference.trim()}` : "",
+    couture.modelNotes?.trim() ? `Consignes modele: ${couture.modelNotes.trim()}` : "",
+  ].filter(Boolean);
+
+  return sections.join("\n\n") || null;
 }
 
 type InvoiceScope = "global" | "pressing" | "atelier";
@@ -82,6 +170,8 @@ async function getOrCreateInvoiceSettings(scope: InvoiceScope) {
 
 // Get all orders
 ordersRouter.get("/", requireAuth, async (req, res) => {
+  if (ensureNotClient(req, res)) return;
+
   const search = typeof req.query.search === "string" ? req.query.search : undefined;
   const limit = typeof req.query.limit === "string" ? req.query.limit : "50";
   const offset = typeof req.query.offset === "string" ? req.query.offset : "0";
@@ -109,12 +199,7 @@ ordersRouter.get("/", requireAuth, async (req, res) => {
       take: parseInt(limit as string),
       skip: parseInt(offset as string),
       orderBy: { createdAt: 'desc' },
-      include: {
-        client: { select: { id: true, prenom: true, nom: true, telephone: true } },
-        pressing: true,
-        couture: true,
-        createdBy: { select: { id: true, prenom: true, nom: true, role: true } },
-      },
+      include: orderInclude,
     }),
     prisma.order.count({ where }),
   ]);
@@ -124,18 +209,14 @@ ordersRouter.get("/", requireAuth, async (req, res) => {
 
 // Get orders by client ID
 ordersRouter.get("/client/:clientId", requireAuth, async (req, res) => {
+  if (ensureNotClient(req, res)) return;
+
   const { clientId } = req.params;
   
   const orders = await prisma.order.findMany({
     where: { clientId: String(clientId) },
     orderBy: { createdAt: 'desc' },
-    include: {
-      client: { select: { id: true, prenom: true, nom: true, telephone: true } },
-      pressing: true,
-      couture: true,
-      invoice: true,
-      createdBy: { select: { id: true, prenom: true, nom: true, role: true } },
-    },
+    include: orderInclude,
   });
 
   res.json(orders);
@@ -143,16 +224,11 @@ ordersRouter.get("/client/:clientId", requireAuth, async (req, res) => {
 
 // Get order by ID
 ordersRouter.get("/:id", requireAuth, async (req, res) => {
+  if (ensureNotClient(req, res)) return;
+
   const order = await prisma.order.findUnique({
     where: { id: String(req.params.id) },
-    include: {
-      client: true,
-      pressing: true,
-      couture: true,
-      invoice: true,
-      createdBy: { select: { id: true, prenom: true, nom: true, role: true } },
-      updatedBy: { select: { id: true, prenom: true, nom: true, role: true } },
-    },
+    include: orderInclude,
   });
 
   if (!order) {
@@ -164,6 +240,8 @@ ordersRouter.get("/:id", requireAuth, async (req, res) => {
 
 // Create order
 ordersRouter.post("/", requireAuth, async (req, res) => {
+  if (ensureNotClient(req, res)) return;
+
   const parsed = orderSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.flatten() });
@@ -181,6 +259,24 @@ ordersRouter.post("/", requireAuth, async (req, res) => {
   const actorId = req.user?.id;
   if (!actorId) return res.status(401).json({ error: "Non authentifié" });
 
+  let selectedMeasurementId: string | undefined;
+  const measurementData = type === "couture" ? normalizeMeasurementPayload(couture?.measurementData) : undefined;
+  if (type === "couture" && couture?.measurementId) {
+    const existingMeasurement = await prisma.measurement.findFirst({
+      where: {
+        id: couture.measurementId,
+        clientId,
+      },
+      select: { id: true },
+    });
+
+    if (!existingMeasurement) {
+      return res.status(404).json({ error: "Mensuration introuvable pour ce client" });
+    }
+
+    selectedMeasurementId = existingMeasurement.id;
+  }
+
   const order = await prisma.$transaction(async (tx) => {
     const newOrder = await tx.order.create({
       data: {
@@ -195,6 +291,22 @@ ordersRouter.post("/", requireAuth, async (req, res) => {
         client: { select: { id: true, prenom: true, nom: true, telephone: true } },
       },
     });
+
+    let coutureMeasurementId = selectedMeasurementId;
+
+    if (type === "couture" && measurementData) {
+      const measurement = await tx.measurement.create({
+        data: {
+          clientId,
+          orderId: newOrder.id,
+          data: measurementData as Prisma.InputJsonValue,
+          notes: couture?.measurementNotes?.trim() || undefined,
+        },
+        select: { id: true },
+      });
+
+      coutureMeasurementId = measurement.id;
+    }
 
     if (type === "pressing" && pressing) {
       await tx.pressingOrder.create({
@@ -211,7 +323,8 @@ ordersRouter.post("/", requireAuth, async (req, res) => {
         data: {
           orderId: newOrder.id,
           typeService: couture.typeService,
-          description: couture.description,
+          description: buildCoutureDescription(couture),
+          measurementId: coutureMeasurementId,
           tissu: couture.tissu,
           deadline: couture.deadline ? new Date(couture.deadline) : null,
           modelImage: couture.modelImage,
@@ -219,7 +332,10 @@ ordersRouter.post("/", requireAuth, async (req, res) => {
       });
     }
 
-    return newOrder;
+    return tx.order.findUnique({
+      where: { id: newOrder.id },
+      include: orderInclude,
+    });
   });
 
   res.status(201).json(order);
@@ -227,6 +343,8 @@ ordersRouter.post("/", requireAuth, async (req, res) => {
 
 // Update order status
 ordersRouter.patch("/:id/status", requireAuth, async (req, res) => {
+  if (ensureNotClient(req, res)) return;
+
   const schema = z.object({
     status: z.union([
       z.enum(["en_attente", "en_cours", "termine", "livre"]),
@@ -275,6 +393,8 @@ ordersRouter.patch("/:id/status", requireAuth, async (req, res) => {
 
 // Delete order
 ordersRouter.delete("/:id", requireAuth, async (req, res) => {
+  if (ensureNotClient(req, res)) return;
+
   const existing = await prisma.order.findUnique({
     where: { id: String(req.params.id) },
     select: { id: true, type: true },
@@ -291,6 +411,8 @@ ordersRouter.delete("/:id", requireAuth, async (req, res) => {
 
 // Generate invoice for order
 ordersRouter.post("/:id/invoice", requireAuth, async (req, res) => {
+  if (ensureNotClient(req, res)) return;
+
   const { id } = req.params;
 
   const settingsSchema = z.object({

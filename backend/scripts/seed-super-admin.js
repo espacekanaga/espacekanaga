@@ -25,7 +25,19 @@ async function main() {
 
   const existingByEmail = await prisma.user.findUnique({ where: { email } });
   if (existingByEmail) {
-    console.log(`[seed] Utilisateur ${email} existe déjà (role=${existingByEmail.role}).`);
+    // Reset password and ensure all required fields are set
+    const passwordHash = await bcrypt.hash(password, 10);
+    await prisma.user.update({
+      where: { email },
+      data: { 
+        passwordHash, 
+        isActive: true,
+        prenom: existingByEmail.prenom || "Super",
+        nom: existingByEmail.nom || "Admin",
+        telephone: existingByEmail.telephone || "+22370000001"
+      }
+    });
+    console.log(`[seed] Mot de passe réinitialisé pour ${email} (role=${existingByEmail.role}).`);
     return;
   }
 

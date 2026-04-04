@@ -107,48 +107,81 @@ export class InvoiceGenerator {
     const contentWidth = pageRight - pageLeft;
     const top = doc.page.margins.top;
 
-    // Header
+    // Header - Improved professional layout
     const headerY = top;
-    doc.font('Helvetica-Bold').fontSize(22).fillColor('#0b1220').text(company.name, pageLeft, headerY);
-    doc.font('Helvetica').fontSize(11).fillColor('#111827').text(company.tagline, pageLeft, headerY + 28);
-
-    doc.font('Helvetica').fontSize(9).fillColor('#334155');
-    const companyLines: string[] = [];
-    if (company.address) companyLines.push(company.address);
-    if (company.phone) companyLines.push(`Tél: ${company.phone}`);
-    if (company.email) companyLines.push(`Email: ${company.email}`);
+    const leftColX = pageLeft;
+    const rightColX = pageRight - 210;
+    
+    // Company branding area with blue accent
+    doc.rect(leftColX, headerY, 4, 70).fill('#2563eb'); // Blue accent bar
+    
+    // Company name with larger, bold styling
+    doc.font('Helvetica-Bold').fontSize(26).fillColor('#0f172a').text(company.name, leftColX + 12, headerY + 2);
+    doc.font('Helvetica').fontSize(12).fillColor('#2563eb').text(company.tagline, leftColX + 12, headerY + 32);
+    
+    // Company info in a cleaner layout
+    doc.font('Helvetica').fontSize(9).fillColor('#64748b');
+    let infoY = headerY + 50;
+    
+    if (company.email) {
+      doc.text(company.email, leftColX + 12, infoY);
+      infoY += 14;
+    }
+    if (company.phone) {
+      doc.text(`Tél: ${company.phone}`, leftColX + 12, infoY);
+      infoY += 14;
+    }
+    if (company.address) {
+      doc.text(company.address, leftColX + 12, infoY);
+      infoY += 14;
+    }
+    
+    // Legal info (NIF/RCCM) in one line
     const legal = [company.nif ? `NIF: ${company.nif}` : '', company.rccm ? `RCCM: ${company.rccm}` : '']
       .filter(Boolean)
-      .join(' • ');
-    if (legal) companyLines.push(legal);
-    companyLines.forEach((line, idx) => {
-      doc.text(line, pageLeft, headerY + 46 + idx * 12);
-    });
+      .join('  |  ');
+    if (legal) {
+      doc.font('Helvetica').fontSize(8).fillColor('#94a3b8');
+      doc.text(legal, leftColX + 12, infoY);
+    }
 
-    // Invoice meta box (right)
-    const metaW = 210;
+    // Invoice meta box - Professional card style with blue header
+    const metaW = 200;
     const metaX = pageRight - metaW;
-    const metaY = headerY + 2;
-    doc.roundedRect(metaX, metaY, metaW, 86, 8).fill('#f1f5f9');
-    doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(14).text('FACTURE', metaX, metaY + 10, {
+    const metaY = headerY;
+    
+    // Box background with subtle border
+    doc.roundedRect(metaX, metaY, metaW, 95, 8).fill('#f8fafc').strokeColor('#e2e8f0').lineWidth(1).stroke();
+    
+    // Blue header bar for "FACTURE" - using separate rounded rects for top corners only
+    const cornerR = 8;
+    // Draw main blue rect slightly smaller at top to add rounded corners separately
+    doc.rect(metaX, metaY + cornerR, metaW, 28 - cornerR).fill('#2563eb');
+    doc.roundedRect(metaX, metaY, metaW, cornerR * 2, cornerR).fill('#2563eb');
+    // Fill the middle to ensure clean look
+    doc.rect(metaX, metaY + cornerR, metaW, 28 - cornerR * 2).fill('#2563eb');
+    doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(14).text('FACTURE', metaX, metaY + 7, {
       width: metaW,
       align: 'center',
     });
-    doc.font('Helvetica').fontSize(9).fillColor('#0f172a');
-    const metaLines: Array<[string, string]> = [
-      ['N°', data.numero],
-      ['Date', data.date.toLocaleDateString('fr-FR')],
-      ['Commande', `#${data.order.id.slice(-6)}`],
-    ];
-    let metaLineY = metaY + 34;
-    metaLines.forEach(([k, v]) => {
-      doc.fillColor('#475569').text(`${k}:`, metaX + 12, metaLineY, { width: 60 });
-      doc.fillColor('#0f172a').font('Helvetica-Bold').text(v, metaX + 54, metaLineY, { width: metaW - 66 });
-      doc.font('Helvetica');
-      metaLineY += 14;
-    });
+    
+    // Invoice details with better spacing
+    doc.font('Helvetica').fontSize(9).fillColor('#475569');
+    const metaLineY = metaY + 38;
+    
+    // N°
+    doc.text('N°', metaX + 12, metaLineY, { width: 50 });
+    doc.fillColor('#0f172a').font('Helvetica-Bold').text(data.numero, metaX + 50, metaLineY, { width: metaW - 62, align: 'left' });
+    
+    // Date
+    doc.fillColor('#475569').font('Helvetica').text('Date', metaX + 12, metaLineY + 18, { width: 50 });
+    doc.fillColor('#0f172a').font('Helvetica-Bold').text(data.date.toLocaleDateString('fr-FR'), metaX + 50, metaLineY + 18, { width: metaW - 62, align: 'left' });
+    
+    // Commande
+    doc.fillColor('#475569').font('Helvetica').text('Commande', metaX + 12, metaLineY + 36, { width: 50 });
+    doc.fillColor('#2563eb').font('Helvetica-Bold').text(`#${data.order.id.slice(-6)}`, metaX + 50, metaLineY + 36, { width: metaW - 62, align: 'left' });
 
-    const afterHeaderY = Math.max(headerY + 46 + companyLines.length * 12, metaY + 86) + 14;
+    const afterHeaderY = Math.max(headerY + 80, metaY + 105) + 16;
     doc.moveTo(pageLeft, afterHeaderY).lineTo(pageRight, afterHeaderY).strokeColor('#e2e8f0').lineWidth(1).stroke();
 
     // Client block

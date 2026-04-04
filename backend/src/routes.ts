@@ -9,7 +9,8 @@ import { usersRouter } from "./modules/controllers/users.controller";
 import { measurementsRouter } from "./modules/controllers/measurements.controller";
 import { invoicesRouter } from "./modules/controllers/invoices.controller";
 import { invoiceSettingsRouter } from "./modules/controllers/invoiceSettings.controller";
-import { workScheduleRouter } from "./modules/controllers/workSchedule.controller";
+import { getPublicWorkSchedule, workScheduleRouter } from "./modules/controllers/workSchedule.controller";
+import { getPublicPricing, pricingRouter } from "./modules/controllers/pricing.controller";
 import { prisma } from "./prisma/prismaClient";
 
 export function registerRoutes(app: Express) {
@@ -61,6 +62,9 @@ export function registerRoutes(app: Express) {
   });
 
   app.use("/api/auth", authRouter);
+  app.get("/api/public/work-schedule", getPublicWorkSchedule);
+  app.get("/api/public/pricing", getPublicPricing);
+  app.use("/api/settings/pricing", pricingRouter);
   app.use("/api/settings/invoice", invoiceSettingsRouter);
   app.use("/api/settings/work-schedule", workScheduleRouter);
   app.use("/api/clients", clientsRouter);

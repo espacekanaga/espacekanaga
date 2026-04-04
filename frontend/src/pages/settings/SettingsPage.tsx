@@ -241,7 +241,7 @@ export function SettingsPage() {
   return (
     <div>
       <PageHeader title="Paramètres" description="Personnalisez votre expérience">
-        <Button variant="secondary" onClick={() => navigate('/')}>
+        <Button variant="secondary" onClick={() => navigate('/dashboard')}>
           Retour
         </Button>
       </PageHeader>

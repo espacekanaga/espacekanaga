@@ -11,6 +11,7 @@ type JwtPayload = {
   nom: string;
   telephone: string;
   email?: string;
+  clientType?: "pressing" | "atelier" | "both";
   accessPressing: boolean;
   accessAtelier: boolean;
 };
@@ -30,6 +31,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
       nom: payload.nom,
       telephone: payload.telephone,
       email: payload.email,
+      clientType: payload.clientType,
       accessPressing: payload.accessPressing,
       accessAtelier: payload.accessAtelier,
     };
@@ -59,6 +61,7 @@ export function requireSuperAdmin(req: Request, res: Response, next: NextFunctio
       nom: payload.nom,
       telephone: payload.telephone,
       email: payload.email,
+      clientType: payload.clientType,
       accessPressing: payload.accessPressing,
       accessAtelier: payload.accessAtelier,
     };

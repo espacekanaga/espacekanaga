@@ -1,4 +1,6 @@
-export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'EMPLOYEE';
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'EMPLOYEE' | 'CLIENT';
+
+export type ClientType = 'pressing' | 'atelier' | 'both';
 
 export interface User {
   id: string;
@@ -11,6 +13,8 @@ export interface User {
   isActive: boolean;
   accessPressing?: boolean;
   accessAtelier?: boolean;
+  clientType?: ClientType;
+  theme?: 'dark' | 'light' | 'system';
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +29,16 @@ export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
   user: User;
+}
+
+export interface RegisterClientPayload {
+  prenom: string;
+  nom: string;
+  telephone: string;
+  email?: string;
+  adresse?: string;
+  clientType: ClientType;
+  password: string;
 }
 
 export interface RefreshRequest {

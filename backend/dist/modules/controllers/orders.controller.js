@@ -20,12 +20,53 @@ const orderSchema = zod_1.z.object({
     couture: zod_1.z.object({
         typeService: zod_1.z.enum(["sur_mesure", "retouche"]),
         description: zod_1.z.string().optional(),
+        modelReference: zod_1.z.string().optional(),
+        modelNotes: zod_1.z.string().optional(),
+        measurementId: zod_1.z.string().uuid().optional(),
+        measurementData: zod_1.z.record(zod_1.z.string(), zod_1.z.union([zod_1.z.number(), zod_1.z.string(), zod_1.z.null()])).optional(),
+        measurementNotes: zod_1.z.string().optional(),
         tissu: zod_1.z.string().optional(),
         deadline: zod_1.z.string().optional(),
         modelImage: zod_1.z.string().optional(), // Base64 or URL of the model image
     }).optional(),
 });
 exports.ordersRouter = (0, express_1.Router)();
+const measurementSelect = {
+    id: true,
+    clientId: true,
+    orderId: true,
+    data: true,
+    notes: true,
+    createdAt: true,
+    updatedAt: true,
+};
+const invoiceSelect = {
+    id: true,
+    orderId: true,
+    filePath: true,
+    createdAt: true,
+};
+const orderInclude = {
+    client: { select: { id: true, prenom: true, nom: true, telephone: true } },
+    pressing: true,
+    couture: {
+        include: {
+            measurement: {
+                select: measurementSelect,
+            },
+        },
+    },
+    invoice: { select: invoiceSelect },
+    createdBy: { select: { id: true, prenom: true, nom: true, role: true } },
+    updatedBy: { select: { id: true, prenom: true, nom: true, role: true } },
+};
+function ensureNotClient(req, res) {
+    if (req.user?.role === "CLIENT") {
+        res.status(403).json({ error: "Acces refuse" });
+        return true;
+    }
+    return false;
+}
 function canModifyOrder(orderType, user) {
     if (!user)
         return false;
@@ -36,6 +77,43 @@ function canModifyOrder(orderType, user) {
     if (orderType === client_1.OrderType.couture)
         return user.accessAtelier === true;
     return false;
+}
+function normalizeMeasurementPayload(input) {
+    if (!input)
+        return undefined;
+    const data = Object.entries(input).reduce((acc, [rawKey, rawValue]) => {
+        const key = rawKey.trim();
+        if (!key || rawValue === null || rawValue === undefined)
+            return acc;
+        if (typeof rawValue === "number") {
+            if (Number.isFinite(rawValue)) {
+                acc[key] = rawValue;
+            }
+            return acc;
+        }
+        const value = rawValue.trim();
+        if (!value)
+            return acc;
+        const normalizedNumber = value.replace(",", ".");
+        if (/^-?\d+(\.\d+)?$/.test(normalizedNumber)) {
+            const parsed = Number(normalizedNumber);
+            if (Number.isFinite(parsed)) {
+                acc[key] = parsed;
+                return acc;
+            }
+        }
+        acc[key] = value;
+        return acc;
+    }, {});
+    return Object.keys(data).length ? data : undefined;
+}
+function buildCoutureDescription(couture) {
+    const sections = [
+        couture.description?.trim(),
+        couture.modelReference?.trim() ? `Modele / reference: ${couture.modelReference.trim()}` : "",
+        couture.modelNotes?.trim() ? `Consignes modele: ${couture.modelNotes.trim()}` : "",
+    ].filter(Boolean);
+    return sections.join("\n\n") || null;
 }
 function defaultGlobalInvoiceSettings() {
     const companyName = process.env.INVOICE_COMPANY_NAME || "ESPACE KANAGA";
@@ -77,6 +155,8 @@ async function getOrCreateInvoiceSettings(scope) {
 }
 // Get all orders
 exports.ordersRouter.get("/", auth_middleware_1.requireAuth, async (req, res) => {
+    if (ensureNotClient(req, res))
+        return;
     const search = typeof req.query.search === "string" ? req.query.search : undefined;
     const limit = typeof req.query.limit === "string" ? req.query.limit : "50";
     const offset = typeof req.query.offset === "string" ? req.query.offset : "0";
@@ -100,12 +180,7 @@ exports.ordersRouter.get("/", auth_middleware_1.requireAuth, async (req, res) =>
             take: parseInt(limit),
             skip: parseInt(offset),
             orderBy: { createdAt: 'desc' },
-            include: {
-                client: { select: { id: true, prenom: true, nom: true, telephone: true } },
-                pressing: true,
-                couture: true,
-                createdBy: { select: { id: true, prenom: true, nom: true, role: true } },
-            },
+            include: orderInclude,
         }),
         prismaClient_1.prisma.order.count({ where }),
     ]);
@@ -113,32 +188,23 @@ exports.ordersRouter.get("/", auth_middleware_1.requireAuth, async (req, res) =>
 });
 // Get orders by client ID
 exports.ordersRouter.get("/client/:clientId", auth_middleware_1.requireAuth, async (req, res) => {
+    if (ensureNotClient(req, res))
+        return;
     const { clientId } = req.params;
     const orders = await prismaClient_1.prisma.order.findMany({
         where: { clientId: String(clientId) },
         orderBy: { createdAt: 'desc' },
-        include: {
-            client: { select: { id: true, prenom: true, nom: true, telephone: true } },
-            pressing: true,
-            couture: true,
-            invoice: true,
-            createdBy: { select: { id: true, prenom: true, nom: true, role: true } },
-        },
+        include: orderInclude,
     });
     res.json(orders);
 });
 // Get order by ID
 exports.ordersRouter.get("/:id", auth_middleware_1.requireAuth, async (req, res) => {
+    if (ensureNotClient(req, res))
+        return;
     const order = await prismaClient_1.prisma.order.findUnique({
         where: { id: String(req.params.id) },
-        include: {
-            client: true,
-            pressing: true,
-            couture: true,
-            invoice: true,
-            createdBy: { select: { id: true, prenom: true, nom: true, role: true } },
-            updatedBy: { select: { id: true, prenom: true, nom: true, role: true } },
-        },
+        include: orderInclude,
     });
     if (!order) {
         return res.status(404).json({ error: "Commande non trouvée" });
@@ -147,6 +213,8 @@ exports.ordersRouter.get("/:id", auth_middleware_1.requireAuth, async (req, res)
 });
 // Create order
 exports.ordersRouter.post("/", auth_middleware_1.requireAuth, async (req, res) => {
+    if (ensureNotClient(req, res))
+        return;
     const parsed = orderSchema.safeParse(req.body);
     if (!parsed.success) {
         return res.status(400).json({ error: parsed.error.flatten() });
@@ -161,6 +229,21 @@ exports.ordersRouter.post("/", auth_middleware_1.requireAuth, async (req, res) =
     const actorId = req.user?.id;
     if (!actorId)
         return res.status(401).json({ error: "Non authentifié" });
+    let selectedMeasurementId;
+    const measurementData = type === "couture" ? normalizeMeasurementPayload(couture?.measurementData) : undefined;
+    if (type === "couture" && couture?.measurementId) {
+        const existingMeasurement = await prismaClient_1.prisma.measurement.findFirst({
+            where: {
+                id: couture.measurementId,
+                clientId,
+            },
+            select: { id: true },
+        });
+        if (!existingMeasurement) {
+            return res.status(404).json({ error: "Mensuration introuvable pour ce client" });
+        }
+        selectedMeasurementId = existingMeasurement.id;
+    }
     const order = await prismaClient_1.prisma.$transaction(async (tx) => {
         const newOrder = await tx.order.create({
             data: {
@@ -175,6 +258,19 @@ exports.ordersRouter.post("/", auth_middleware_1.requireAuth, async (req, res) =
                 client: { select: { id: true, prenom: true, nom: true, telephone: true } },
             },
         });
+        let coutureMeasurementId = selectedMeasurementId;
+        if (type === "couture" && measurementData) {
+            const measurement = await tx.measurement.create({
+                data: {
+                    clientId,
+                    orderId: newOrder.id,
+                    data: measurementData,
+                    notes: couture?.measurementNotes?.trim() || undefined,
+                },
+                select: { id: true },
+            });
+            coutureMeasurementId = measurement.id;
+        }
         if (type === "pressing" && pressing) {
             await tx.pressingOrder.create({
                 data: {
@@ -191,19 +287,25 @@ exports.ordersRouter.post("/", auth_middleware_1.requireAuth, async (req, res) =
                 data: {
                     orderId: newOrder.id,
                     typeService: couture.typeService,
-                    description: couture.description,
+                    description: buildCoutureDescription(couture),
+                    measurementId: coutureMeasurementId,
                     tissu: couture.tissu,
                     deadline: couture.deadline ? new Date(couture.deadline) : null,
                     modelImage: couture.modelImage,
                 },
             });
         }
-        return newOrder;
+        return tx.order.findUnique({
+            where: { id: newOrder.id },
+            include: orderInclude,
+        });
     });
     res.status(201).json(order);
 });
 // Update order status
 exports.ordersRouter.patch("/:id/status", auth_middleware_1.requireAuth, async (req, res) => {
+    if (ensureNotClient(req, res))
+        return;
     const schema = zod_1.z.object({
         status: zod_1.z.union([
             zod_1.z.enum(["en_attente", "en_cours", "termine", "livre"]),
@@ -245,6 +347,8 @@ exports.ordersRouter.patch("/:id/status", auth_middleware_1.requireAuth, async (
 });
 // Delete order
 exports.ordersRouter.delete("/:id", auth_middleware_1.requireAuth, async (req, res) => {
+    if (ensureNotClient(req, res))
+        return;
     const existing = await prismaClient_1.prisma.order.findUnique({
         where: { id: String(req.params.id) },
         select: { id: true, type: true },
@@ -259,6 +363,8 @@ exports.ordersRouter.delete("/:id", auth_middleware_1.requireAuth, async (req, r
 });
 // Generate invoice for order
 exports.ordersRouter.post("/:id/invoice", auth_middleware_1.requireAuth, async (req, res) => {
+    if (ensureNotClient(req, res))
+        return;
     const { id } = req.params;
     const settingsSchema = zod_1.z.object({
         tauxTVA: zod_1.z.coerce.number().min(0).max(100).optional(),

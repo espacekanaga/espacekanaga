@@ -6,8 +6,6 @@ import crypto from "crypto";
 
 import { env } from "../../env";
 import { prisma } from "../../prisma/prismaClient";
-import { requireAuth } from "../middlewares/auth.middleware";
-import { requireRoles } from "../middlewares/rbac.middleware";
 import type { UserRole } from "../../types/roles";
 import { normalizeEmail, normalizeTelephone } from "../utils/normalize";
 
@@ -17,31 +15,61 @@ const loginSchema = z
     email: z.string().email().optional(),
     password: z.string().min(6),
   })
-  .refine((v) => Boolean(v.telephone || v.email), {
-    message: "Fournir un téléphone ou un email",
+  .refine((value) => Boolean(value.telephone || value.email), {
+    message: "Fournir un telephone ou un email",
     path: ["telephone"],
   });
 
-const registerSchema = z.object({
+const registerClientSchema = z.object({
   prenom: z.string().min(2),
   nom: z.string().min(2),
   telephone: z.string().min(8),
   email: z.string().email().optional(),
+  adresse: z.string().optional(),
   password: z.string().min(6),
-  role: z.enum(["SUPER_ADMIN", "ADMIN", "EMPLOYEE"]).optional(),
-  accessPressing: z.boolean().optional().default(false),
-  accessAtelier: z.boolean().optional().default(false),
+  clientType: z.enum(["pressing", "atelier", "both"]).default("both"),
 });
+
+interface TokenUser {
+  id: string;
+  role: UserRole;
+  prenom: string;
+  nom: string;
+  telephone: string;
+  email: string | null;
+  clientType?: "pressing" | "atelier" | "both" | null;
+  accessPressing: boolean;
+  accessAtelier: boolean;
+  theme: string;
+}
+
+const authUserSelect = {
+  id: true,
+  prenom: true,
+  nom: true,
+  telephone: true,
+  email: true,
+  adresse: true,
+  passwordHash: true,
+  role: true,
+  isActive: true,
+  accessPressing: true,
+  accessAtelier: true,
+  theme: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
 function sha256(input: string) {
   return crypto.createHash("sha256").update(input).digest("hex");
 }
 
 function parseExpiresInToDate(expiresIn: string) {
-  const m = /^([0-9]+)([smhd])$/.exec(expiresIn.trim());
-  if (!m) throw new Error("Invalid expiresIn format");
-  const value = Number(m[1]);
-  const unit = m[2];
+  const match = /^([0-9]+)([smhd])$/.exec(expiresIn.trim());
+  if (!match) throw new Error("Invalid expiresIn format");
+
+  const value = Number(match[1]);
+  const unit = match[2];
   const seconds =
     unit === "s"
       ? value
@@ -50,37 +78,30 @@ function parseExpiresInToDate(expiresIn: string) {
         : unit === "h"
           ? value * 60 * 60
           : value * 60 * 60 * 24;
+
   return new Date(Date.now() + seconds * 1000);
 }
 
-// Full user type for JWT token
-interface TokenUser {
-  id: string;
-  role: UserRole;
-  prenom: string;
-  nom: string;
-  telephone: string;
-  email: string | null;
-  accessPressing: boolean;
-  accessAtelier: boolean;
-  theme: string;
-}
-
 function signAccessToken(user: TokenUser) {
-  return jwt.sign({ 
-    sub: user.id, 
-    role: user.role, 
-    prenom: user.prenom,
-    nom: user.nom,
-    telephone: user.telephone,
-    email: user.email,
-    accessPressing: user.accessPressing,
-    accessAtelier: user.accessAtelier,
-    theme: user.theme,
-    typ: "access" 
-  }, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN,
-  });
+  return jwt.sign(
+    {
+      sub: user.id,
+      role: user.role,
+      prenom: user.prenom,
+      nom: user.nom,
+      telephone: user.telephone,
+      email: user.email,
+      clientType: user.clientType ?? undefined,
+      accessPressing: user.accessPressing,
+      accessAtelier: user.accessAtelier,
+      theme: user.theme,
+      typ: "access",
+    },
+    env.JWT_SECRET,
+    {
+      expiresIn: env.JWT_EXPIRES_IN,
+    }
+  );
 }
 
 function signRefreshToken(user: { id: string; role: UserRole }, jti: string) {
@@ -89,9 +110,29 @@ function signRefreshToken(user: { id: string; role: UserRole }, jti: string) {
   });
 }
 
+function resolveClientType(source: {
+  accessPressing: boolean;
+  accessAtelier: boolean;
+  clientType?: "pressing" | "atelier" | "both" | null;
+}) {
+  if (source.clientType) return source.clientType;
+  if (source.accessPressing && source.accessAtelier) return "both";
+  if (source.accessAtelier) return "atelier";
+  if (source.accessPressing) return "pressing";
+  return null;
+}
+
+async function loadClientTypeByTelephone(telephone: string) {
+  const client = await prisma.client.findUnique({
+    where: { telephone },
+    select: { clientType: true },
+  });
+
+  return client?.clientType ?? null;
+}
+
 async function issueTokens(user: TokenUser) {
   const accessToken = signAccessToken(user);
-
   const jti = crypto.randomUUID();
   const refreshToken = signRefreshToken(user, jti);
   const tokenHash = sha256(refreshToken);
@@ -108,15 +149,49 @@ async function issueTokens(user: TokenUser) {
   return { accessToken, refreshToken };
 }
 
+function buildAuthUser(user: {
+  id: string;
+  prenom: string;
+  nom: string;
+  telephone: string;
+  email: string | null;
+  adresse: string | null;
+  role: UserRole;
+  isActive: boolean;
+  accessPressing: boolean;
+  accessAtelier: boolean;
+  theme: string;
+  createdAt: Date;
+  updatedAt: Date;
+  clientType?: "pressing" | "atelier" | "both" | null;
+}) {
+  return {
+    id: user.id,
+    prenom: user.prenom,
+    nom: user.nom,
+    telephone: user.telephone,
+    email: user.email,
+    adresse: user.adresse,
+    role: user.role,
+    isActive: user.isActive,
+    clientType: resolveClientType(user),
+    accessPressing: user.accessPressing,
+    accessAtelier: user.accessAtelier,
+    theme: user.theme,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+  };
+}
+
 export const authRouter = Router();
 
 authRouter.post("/login", async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const { telephone, email, password } = parsed.data;
-  const normalizedTelephone = normalizeTelephone(telephone);
-  const normalizedEmail = normalizeEmail(email);
+  const normalizedTelephone = normalizeTelephone(parsed.data.telephone);
+  const normalizedEmail = normalizeEmail(parsed.data.email);
+
   const user = await prisma.user.findFirst({
     where: {
       OR: [
@@ -124,13 +199,16 @@ authRouter.post("/login", async (req, res) => {
         ...(normalizedEmail ? [{ email: normalizedEmail }] : []),
       ],
     },
+    select: authUserSelect,
   });
+
   if (!user) return res.status(401).json({ error: "Identifiants invalides" });
 
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(401).json({ error: "Identifiants invalides" });
+  const isValidPassword = await bcrypt.compare(parsed.data.password, user.passwordHash);
+  if (!isValidPassword) return res.status(401).json({ error: "Identifiants invalides" });
+  if (!user.isActive) return res.status(403).json({ error: "Utilisateur desactive" });
 
-  if (!user.isActive) return res.status(403).json({ error: "Utilisateur désactivé" });
+  const clientType = await loadClientTypeByTelephone(user.telephone);
 
   const tokenUser: TokenUser = {
     id: user.id,
@@ -139,6 +217,7 @@ authRouter.post("/login", async (req, res) => {
     nom: user.nom,
     telephone: user.telephone,
     email: user.email,
+    clientType: clientType ?? resolveClientType(user),
     accessPressing: user.accessPressing,
     accessAtelier: user.accessAtelier,
     theme: user.theme,
@@ -148,17 +227,7 @@ authRouter.post("/login", async (req, res) => {
   return res.json({
     accessToken,
     refreshToken,
-    user: { 
-      id: user.id, 
-      prenom: user.prenom, 
-      nom: user.nom, 
-      telephone: user.telephone, 
-      email: user.email, 
-      role: user.role, 
-      accessPressing: user.accessPressing, 
-      accessAtelier: user.accessAtelier,
-      theme: user.theme,
-    },
+    user: buildAuthUser(user),
   });
 });
 
@@ -167,31 +236,34 @@ authRouter.post("/refresh", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const { refreshToken } = parsed.data;
-
   let payload: any;
   try {
-    payload = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET);
+    payload = jwt.verify(parsed.data.refreshToken, env.JWT_REFRESH_SECRET);
   } catch {
     return res.status(401).json({ error: "Refresh token invalide" });
   }
 
   if (payload?.typ !== "refresh") return res.status(401).json({ error: "Refresh token invalide" });
 
-  const tokenHash = sha256(refreshToken);
+  const tokenHash = sha256(parsed.data.refreshToken);
   const record = await prisma.refreshToken.findUnique({ where: { tokenHash } });
   if (!record) return res.status(401).json({ error: "Refresh token invalide" });
-  if (record.revokedAt) return res.status(401).json({ error: "Refresh token révoqué" });
-  if (record.expiresAt.getTime() <= Date.now()) return res.status(401).json({ error: "Refresh token expiré" });
+  if (record.revokedAt) return res.status(401).json({ error: "Refresh token revoque" });
+  if (record.expiresAt.getTime() <= Date.now()) return res.status(401).json({ error: "Refresh token expire" });
 
-  const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+  const user = await prisma.user.findUnique({
+    where: { id: payload.sub },
+    select: authUserSelect,
+  });
   if (!user) return res.status(401).json({ error: "Utilisateur introuvable" });
-  if (!user.isActive) return res.status(403).json({ error: "Utilisateur désactivé" });
+  if (!user.isActive) return res.status(403).json({ error: "Utilisateur desactive" });
 
   await prisma.refreshToken.update({
     where: { id: record.id },
     data: { revokedAt: new Date() },
   });
+
+  const clientType = await loadClientTypeByTelephone(user.telephone);
 
   const tokenUser: TokenUser = {
     id: user.id,
@@ -200,13 +272,14 @@ authRouter.post("/refresh", async (req, res) => {
     nom: user.nom,
     telephone: user.telephone,
     email: user.email,
+    clientType: clientType ?? resolveClientType(user),
     accessPressing: user.accessPressing,
     accessAtelier: user.accessAtelier,
     theme: user.theme,
   };
 
-  const { accessToken, refreshToken: newRefreshToken } = await issueTokens(tokenUser);
-  return res.json({ accessToken, refreshToken: newRefreshToken });
+  const { accessToken, refreshToken } = await issueTokens(tokenUser);
+  return res.json({ accessToken, refreshToken });
 });
 
 authRouter.post("/logout", async (req, res) => {
@@ -228,60 +301,84 @@ authRouter.post("/logout", async (req, res) => {
   return res.status(204).send();
 });
 
-// Inscription réservée (Super Admin) : utile pour créer un premier Admin/Employé.
-authRouter.post(
-  "/register",
-  requireAuth,
-  requireRoles("SUPER_ADMIN"),
-  async (req, res) => {
-    const parsed = registerSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+authRouter.post("/register", async (req, res) => {
+  const parsed = registerClientSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-    const { prenom, nom, telephone, email, password, role, accessPressing, accessAtelier } = parsed.data;
-    const normalizedTelephone = normalizeTelephone(telephone);
-    const normalizedEmail = normalizeEmail(email);
-    if (!normalizedTelephone) return res.status(400).json({ error: "Numéro de téléphone invalide" });
-    
-    // Vérifier si le téléphone existe déjà
-    const existsPhone = await prisma.user.findUnique({ where: { telephone: normalizedTelephone } });
-    if (existsPhone) return res.status(409).json({ error: "Numéro de téléphone déjà utilisé" });
-    
-    // Vérifier si l'email existe déjà (si fourni)
-    if (normalizedEmail) {
-      const existsEmail = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-      if (existsEmail) return res.status(409).json({ error: "Email déjà utilisé" });
-    }
+  const normalizedTelephone = normalizeTelephone(parsed.data.telephone);
+  const normalizedEmail = normalizeEmail(parsed.data.email);
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    
-    // Par défaut, les admins et employés ont accès aux deux espaces
-    // Le super_admin peut modifier ça après
-    const defaultAccessPressing = role === "ADMIN" || role === "EMPLOYEE" ? true : accessPressing;
-    const defaultAccessAtelier = role === "ADMIN" || role === "EMPLOYEE" ? true : accessAtelier;
-    
-    const user = await prisma.user.create({
-      data: { 
-        prenom, 
-        nom, 
-        telephone: normalizedTelephone, 
-        email: normalizedEmail, 
-        passwordHash, 
-        role: role ?? "EMPLOYEE",
-        accessPressing: defaultAccessPressing,
-        accessAtelier: defaultAccessAtelier,
+  if (!normalizedTelephone) {
+    return res.status(400).json({ error: "Numero de telephone invalide" });
+  }
+
+  const [existingUserByPhone, existingClientByPhone, existingUserByEmail, existingClientByEmail] = await Promise.all([
+    prisma.user.findUnique({ where: { telephone: normalizedTelephone }, select: { id: true } }),
+    prisma.client.findUnique({ where: { telephone: normalizedTelephone }, select: { id: true } }),
+    normalizedEmail ? prisma.user.findUnique({ where: { email: normalizedEmail }, select: { id: true } }) : Promise.resolve(null),
+    normalizedEmail ? prisma.client.findFirst({ where: { email: normalizedEmail }, select: { id: true } }) : Promise.resolve(null),
+  ]);
+
+  if (existingUserByPhone || existingClientByPhone) {
+    return res.status(409).json({ error: "Numero de telephone deja utilise" });
+  }
+
+  if (existingUserByEmail || existingClientByEmail) {
+    return res.status(409).json({ error: "Email deja utilise" });
+  }
+
+  const accessPressing = parsed.data.clientType === "pressing" || parsed.data.clientType === "both";
+  const accessAtelier = parsed.data.clientType === "atelier" || parsed.data.clientType === "both";
+  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+
+  const user = await prisma.$transaction(async (tx) => {
+    const createdUser = await tx.user.create({
+      data: {
+        prenom: parsed.data.prenom,
+        nom: parsed.data.nom,
+        telephone: normalizedTelephone,
+        email: normalizedEmail,
+        adresse: parsed.data.adresse,
+        passwordHash,
+        role: "CLIENT" as any,
+        accessPressing,
+        accessAtelier,
       },
-      select: { 
-        id: true, 
-        prenom: true, 
-        nom: true, 
-        telephone: true, 
-        email: true, 
-        role: true,
-        accessPressing: true,
-        accessAtelier: true,
+      select: authUserSelect,
+    });
+
+    await tx.client.create({
+      data: {
+        prenom: parsed.data.prenom,
+        nom: parsed.data.nom,
+        telephone: normalizedTelephone,
+        email: normalizedEmail,
+        adresse: parsed.data.adresse,
+        clientType: parsed.data.clientType,
       },
     });
 
-    return res.status(201).json({ user });
-  }
-);
+    return createdUser;
+  });
+
+  const tokenUser: TokenUser = {
+    id: user.id,
+    role: user.role,
+    prenom: user.prenom,
+    nom: user.nom,
+    telephone: user.telephone,
+    email: user.email,
+    clientType: parsed.data.clientType,
+    accessPressing: user.accessPressing,
+    accessAtelier: user.accessAtelier,
+    theme: user.theme,
+  };
+
+  const { accessToken, refreshToken } = await issueTokens(tokenUser);
+
+  return res.status(201).json({
+    accessToken,
+    refreshToken,
+    user: buildAuthUser({ ...user, clientType: parsed.data.clientType }),
+  });
+});

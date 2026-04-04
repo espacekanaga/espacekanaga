@@ -14,6 +14,7 @@ const measurements_controller_1 = require("./modules/controllers/measurements.co
 const invoices_controller_1 = require("./modules/controllers/invoices.controller");
 const invoiceSettings_controller_1 = require("./modules/controllers/invoiceSettings.controller");
 const workSchedule_controller_1 = require("./modules/controllers/workSchedule.controller");
+const pricing_controller_1 = require("./modules/controllers/pricing.controller");
 const prismaClient_1 = require("./prisma/prismaClient");
 function registerRoutes(app) {
     // Health check
@@ -58,6 +59,9 @@ function registerRoutes(app) {
         res.redirect("https://espace-kanaga.netlify.app/login");
     });
     app.use("/api/auth", auth_controller_1.authRouter);
+    app.get("/api/public/work-schedule", workSchedule_controller_1.getPublicWorkSchedule);
+    app.get("/api/public/pricing", pricing_controller_1.getPublicPricing);
+    app.use("/api/settings/pricing", pricing_controller_1.pricingRouter);
     app.use("/api/settings/invoice", invoiceSettings_controller_1.invoiceSettingsRouter);
     app.use("/api/settings/work-schedule", workSchedule_controller_1.workScheduleRouter);
     app.use("/api/clients", clients_controller_1.clientsRouter);

@@ -14,6 +14,11 @@ export const workScheduleApi = {
     return data;
   },
 
+  getPublic: async (): Promise<WorkSchedule[]> => {
+    const { data } = await api.get<WorkSchedule[]>('/public/work-schedule');
+    return data;
+  },
+
   update: async (schedules: WorkSchedule[]): Promise<WorkSchedule[]> => {
     const { data } = await api.put<WorkSchedule[]>('/settings/work-schedule', schedules);
     return data;
