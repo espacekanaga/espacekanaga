@@ -1,6 +1,6 @@
 [build]
   base = "frontend"
-  command = "npm run build"
+  command = "rm -f tsconfig.tsbuildinfo && npm run build"
   publish = "dist"
 
 [build.environment]
