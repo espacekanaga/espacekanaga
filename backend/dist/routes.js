@@ -15,6 +15,7 @@ const invoices_controller_1 = require("./modules/controllers/invoices.controller
 const invoiceSettings_controller_1 = require("./modules/controllers/invoiceSettings.controller");
 const workSchedule_controller_1 = require("./modules/controllers/workSchedule.controller");
 const pricing_controller_1 = require("./modules/controllers/pricing.controller");
+const notifications_controller_1 = require("./modules/controllers/notifications.controller");
 const prismaClient_1 = require("./prisma/prismaClient");
 function registerRoutes(app) {
     // Health check
@@ -70,4 +71,5 @@ function registerRoutes(app) {
     app.use("/api/dashboard", dashboard_controller_1.dashboardRouter);
     app.use("/api/users", users_controller_1.usersRouter);
     app.use("/api/measurements", measurements_controller_1.measurementsRouter);
+    app.use("/api/notifications", notifications_controller_1.notificationsRouter);
 }

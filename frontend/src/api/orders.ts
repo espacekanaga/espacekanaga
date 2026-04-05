@@ -44,4 +44,8 @@ export const ordersApi = {
     const { data } = await api.post(`/orders/${orderId}/invoice`, payload ?? {});
     return data;
   },
+
+  markAsRead: async (id: string): Promise<void> => {
+    await api.patch(`/orders/${id}/read`);
+  },
 };

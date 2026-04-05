@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../hooks/useToast';
 import { ToastProvider, ToastContainer } from './ui/Toast';
+import { NotificationBell } from './notifications/NotificationBell';
 
 type NavigationItem = {
   name: string;
@@ -141,7 +142,9 @@ export function Layout() {
             </Link>
           </div>
 
-          <div className="relative" ref={desktopDropdownRef}>
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <div className="relative" ref={desktopDropdownRef}>
             <button
               onClick={() => setIsProfileDropdownOpen((value) => !value)}
               className="flex items-center gap-3 rounded-xl px-3 py-2 transition hover:bg-slate-100/70 dark:hover:bg-slate-800/60"
@@ -187,6 +190,7 @@ export function Layout() {
               </div>
             ) : null}
           </div>
+        </div>
         </header>
 
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/70 bg-white/70 px-4 backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/80 lg:hidden">

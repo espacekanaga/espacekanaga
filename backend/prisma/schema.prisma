@@ -68,6 +68,10 @@ model User {
 
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
+  
+  // Notifications
+  notifications       Notification[]
+  sentNotifications   Notification[] @relation("sent_notifications")
 
   @@index([nom, prenom])
 }
@@ -165,6 +169,10 @@ model Order {
 
   createdById String
   updatedById String
+  
+  // Suivi de lecture par l'admin
+  isRead    Boolean     @default(false)
+  readAt    DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -180,10 +188,13 @@ model Order {
   measurements Measurement[]
 
   invoice Invoice?
+  
+  notifications Notification[]
 
   @@index([clientId])
   @@index([type, status])
   @@index([createdAt])
+  @@index([isRead])
 }
 
 model PressingOrder {
@@ -429,4 +440,58 @@ model Pricing {
 
   @@unique([serviceName, category])
   @@index([category])
+}
+
+// Systeme de notifications
+enum NotificationType {
+  order_created
+  order_updated
+  order_status_changed
+  order_completed
+  invoice_created
+  invoice_paid
+  message
+  alert
+}
+
+enum NotificationPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String   // Destinataire
+  senderId    String?  // Expediteur (optionnel)
+  
+  type        NotificationType
+  title       String
+  message     String
+  
+  // Liens vers les entites concernees
+  orderId     String?
+  invoiceId   String?
+  
+  // Etat de lecture
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+  
+  // Priorite
+  priority    NotificationPriority @default(medium)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sender      User?    @relation("sent_notifications", fields: [senderId], references: [id], onDelete: SetNull)
+  order       Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@index([type])
+  @@index([orderId])
 }

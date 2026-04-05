@@ -289,3 +289,68 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* Blinking animation for unread orders */
+@keyframes blink {
+  0%, 100% { 
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.7);
+  }
+  50% { 
+    opacity: 0.8;
+    box-shadow: 0 0 0 8px rgba(14, 165, 233, 0);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
+.order-unread {
+  animation: blink 2s ease-in-out infinite;
+  position: relative;
+}
+
+.order-unread::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.order-unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+/* Notification badge animation */
+.notification-badge {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}

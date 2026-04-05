@@ -107,8 +107,8 @@ class InvoiceGenerator {
         doc.fillColor('#475569').font('Helvetica').text('Date', metaX + 12, metaLineY + 18, { width: 50 });
         doc.fillColor('#0f172a').font('Helvetica-Bold').text(data.date.toLocaleDateString('fr-FR'), metaX + 50, metaLineY + 18, { width: metaW - 62, align: 'left' });
         // Commande
-        doc.fillColor('#475569').font('Helvetica').text('Commande', metaX + 12, metaLineY + 36, { width: 50 });
-        doc.fillColor('#2563eb').font('Helvetica-Bold').text(`#${data.order.id.slice(-6)}`, metaX + 50, metaLineY + 36, { width: metaW - 62, align: 'left' });
+        doc.fillColor('#475569').font('Helvetica').text('Commande', metaX + 12, metaLineY + 36, { width: 60 });
+        doc.fillColor('#2563eb').font('Helvetica-Bold').text(`#${data.order.id.slice(-6)}`, metaX + 72, metaLineY + 36, { width: metaW - 84, align: 'left' });
         const afterHeaderY = Math.max(headerY + 80, metaY + 105) + 16;
         doc.moveTo(pageLeft, afterHeaderY).lineTo(pageRight, afterHeaderY).strokeColor('#e2e8f0').lineWidth(1).stroke();
         // Client block
@@ -209,7 +209,7 @@ class InvoiceGenerator {
                 date: data.date,
             });
         }
-        this.drawDigitalSignature(doc, pageRight - 190, finalSealY + 6, data.createdBy, data.numero);
+        this.drawDigitalSignature(doc, pageRight - 190, finalSealY + 6, company.name, data.numero);
         // Footer
         const footerY = doc.page.height - doc.page.margins.bottom - 38;
         doc.font('Helvetica').fontSize(8).fillColor('#64748b');
@@ -248,17 +248,17 @@ class InvoiceGenerator {
         doc.text(options.date.toLocaleDateString('fr-FR'), x, y + height - 14, { width: width, align: 'center' });
         doc.restore();
     }
-    static drawDigitalSignature(doc, x, y, createdBy, numero) {
+    static drawDigitalSignature(doc, x, y, signerName, numero) {
         const width = 180;
         doc.save();
         doc.strokeColor('#0f172a').lineWidth(1);
         doc.moveTo(x, y + 32).lineTo(x + width, y + 32).stroke();
-        const signerName = createdBy ? `${createdBy.prenom} ${createdBy.nom}` : 'Signature';
+        const displayName = signerName || 'Signature';
         doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a');
-        doc.text(signerName, x, y + 36, { width, align: 'center' });
+        doc.text(displayName, x, y + 36, { width, align: 'center' });
         doc.font('Helvetica').fontSize(8).fillColor('#334155');
         doc.text('Signature électronique', x, y + 52, { width, align: 'center' });
-        const hash = this.generateCertificationHash(`${numero}:${signerName}`);
+        const hash = this.generateCertificationHash(`${numero}:${displayName}`);
         doc.fontSize(6).fillColor('#64748b');
         doc.text(`Cert: ${hash}`, x, y + 66, { width, align: 'center' });
         doc.restore();
