@@ -161,7 +161,7 @@ export function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden">
+        <div className="fixed sm:absolute right-0 sm:right-0 left-0 sm:left-auto top-16 sm:top-auto sm:mt-2 mx-4 sm:mx-0 sm:w-96 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden max-w-full">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
             <h3 className="font-semibold text-slate-900 dark:text-slate-100">
               Notifications
@@ -179,7 +179,7 @@ export function NotificationBell() {
             )}
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[60vh] sm:max-h-96 overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin h-6 w-6 border-3 border-blue-500 border-t-transparent rounded-full" />

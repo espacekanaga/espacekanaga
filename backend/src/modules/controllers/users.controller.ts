@@ -298,7 +298,64 @@ usersRouter.patch("/:id", requireSuperAdmin, async (req, res) => {
 
 usersRouter.delete("/:id", requireSuperAdmin, async (req, res) => {
   try {
-    await prisma.user.delete({ where: { id: String(req.params.id) } });
+    const userId = String(req.params.id);
+    
+    // Get user with related data
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        notifications: { select: { id: true } },
+        sentNotifications: { select: { id: true } },
+        refreshTokens: { select: { id: true } },
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "Utilisateur non trouvé" });
+    }
+
+    // Delete in transaction to handle cascading
+    await prisma.$transaction(async (tx) => {
+      // Delete user's notifications
+      if (user.notifications.length > 0) {
+        await tx.notification.deleteMany({
+          where: { userId },
+        });
+      }
+
+      // Set senderId to null for sent notifications
+      if (user.sentNotifications.length > 0) {
+        await tx.notification.updateMany({
+          where: { senderId: userId },
+          data: { senderId: null },
+        });
+      }
+
+      // Delete refresh tokens
+      if (user.refreshTokens.length > 0) {
+        await tx.refreshToken.deleteMany({
+          where: { userId },
+        });
+      }
+
+      // Update orders where user is createdBy to unset the relation
+      await tx.order.updateMany({
+        where: { createdById: userId },
+        data: { createdById: undefined },
+      });
+
+      // Update orders where user is updatedBy to unset the relation  
+      await tx.order.updateMany({
+        where: { updatedById: userId },
+        data: { updatedById: undefined },
+      });
+
+      // Finally delete the user
+      await tx.user.delete({
+        where: { id: userId },
+      });
+    });
+
     res.status(204).send();
   } catch (error) {
     console.error("Error deleting user:", error);

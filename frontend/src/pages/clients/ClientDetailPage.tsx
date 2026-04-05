@@ -122,9 +122,9 @@ export function ClientDetailPage() {
         </div>
       </div>
 
-      {/* Tabs améliorés */}
-      <div className="border-b border-slate-200 dark:border-slate-700 mb-6">
-        <nav className="flex gap-2">
+      {/* Tabs améliorés - responsive */}
+      <div className="border-b border-slate-200 dark:border-slate-700 mb-6 overflow-x-auto">
+        <nav className="flex gap-1 sm:gap-2 min-w-max">
           <TabButton
             active={activeTab === 'info'}
             onClick={() => setActiveTab('info')}
@@ -320,14 +320,15 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 py-3 px-4 font-medium text-sm transition-all rounded-t-lg ${
+      className={`flex items-center gap-1 sm:gap-2 py-2 sm:py-3 px-2 sm:px-4 font-medium text-xs sm:text-sm transition-all rounded-t-lg whitespace-nowrap ${
         active
           ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20'
           : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
       }`}
     >
-      <Icon className="w-4 h-4" />
-      {label}
+      <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
+      <span className="hidden sm:inline">{label}</span>
+      <span className="sm:hidden">{label.split(' ')[0]}</span>
     </button>
   );
 }

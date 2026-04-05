@@ -637,6 +637,77 @@ clientsRouter.patch("/:id", requireAuth, async (req, res) => {
 clientsRouter.delete("/:id", requireAuth, async (req, res) => {
   if (ensureNotClient(req, res)) return;
 
-  await prisma.client.delete({ where: { id: String(req.params.id) } });
+  const { id } = req.params;
+  const clientId = String(id);
+
+  // Check if client exists
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    include: {
+      orders: { select: { id: true } },
+      measurements: { select: { id: true } },
+      inscriptions: { select: { id: true } },
+    },
+  });
+
+  if (!client) {
+    return res.status(404).json({ error: "Client non trouvé" });
+  }
+
+  // Delete in transaction to handle cascading
+  await prisma.$transaction(async (tx) => {
+    // Delete inscriptions first
+    if (client.inscriptions.length > 0) {
+      await tx.formationInscription.deleteMany({
+        where: { clientId },
+      });
+    }
+
+    // Delete measurements (related orders will be handled by onDelete: SetNull)
+    if (client.measurements.length > 0) {
+      await tx.measurement.deleteMany({
+        where: { clientId },
+      });
+    }
+
+    // Delete orders and their related records
+    for (const order of client.orders) {
+      // Delete notifications referencing this order first
+      await tx.notification.deleteMany({
+        where: { orderId: order.id },
+      });
+
+      // Delete measurements linked to this order
+      await tx.measurement.deleteMany({
+        where: { orderId: order.id },
+      });
+
+      // Delete pressing orders
+      await tx.pressingOrder.deleteMany({
+        where: { orderId: order.id },
+      });
+
+      // Delete couture orders
+      await tx.coutureOrder.deleteMany({
+        where: { orderId: order.id },
+      });
+
+      // Delete invoices
+      await tx.invoice.deleteMany({
+        where: { orderId: order.id },
+      });
+
+      // Delete order
+      await tx.order.delete({
+        where: { id: order.id },
+      });
+    }
+
+    // Finally delete client
+    await tx.client.delete({
+      where: { id: clientId },
+    });
+  });
+
   res.status(204).send();
 });

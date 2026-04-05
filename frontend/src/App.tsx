@@ -101,11 +101,11 @@ function AtelierRoute() {
 }
 
 function ClientRoute() {
-  const { isClient, isAuthenticated, isLoading } = useAuth();
+  const { isClient, isSuperAdmin, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) return <RouteSpinner />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!isClient) return <Navigate to="/dashboard" replace />;
+  if (!isClient && !isSuperAdmin) return <Navigate to="/dashboard" replace />;
 
   return <Outlet />;
 }

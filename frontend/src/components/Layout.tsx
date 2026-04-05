@@ -54,7 +54,7 @@ export function Layout() {
     []
   );
 
-  const navigation = isClientRoute ? clientNavigation : adminNavigation;
+  const navigation = (isClientRoute && isClient) ? clientNavigation : adminNavigation;
 
   const handleLogout = async () => {
     await logout();
@@ -203,14 +203,20 @@ export function Layout() {
             </Link>
           </div>
           
-          <Link 
-            to="/" 
-            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-          >
-            <HomeIcon className="w-5 h-5" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link 
+              to="/" 
+              className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+              aria-label="Accueil"
+            >
+              <HomeIcon className="w-5 h-5" />
+            </Link>
+            
+            <div className="relative">
+              <NotificationBell />
+            </div>
 
-          <div className="relative" ref={mobileDropdownRef}>
+            <div className="relative" ref={mobileDropdownRef}>
             <button
               onClick={() => setIsProfileDropdownOpen((value) => !value)}
               className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-slate-100/70 dark:hover:bg-slate-800/60"
@@ -252,6 +258,7 @@ export function Layout() {
                 </div>
               </div>
             ) : null}
+          </div>
           </div>
         </header>
 
